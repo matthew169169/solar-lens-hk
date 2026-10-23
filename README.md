@@ -78,3 +78,7 @@ The `.openai/hosting.json` file belongs to this project's private Sites deployme
 `src/imagery.js`: image/window loading and georeferencing. `src/inference.worker.js`: model execution. `src/postprocess.js`: masks/NMS. `src/detector.js`: tiling and union. `src/geometry.js`: measurements and geographic exports. `src/main.js`: review, comparison, maps and persistence. `scripts/`: reproducible asset preparation. `tests/`: measurement and inference-decoder tests.
 
 An optional GitHub Actions test/build workflow is provided at `docs/ci.yml.example`. To enable it, an owner with workflow-write permission can copy it to `.github/workflows/ci.yml`. The publishing connection used for the initial release lacks that scope, so automated Actions are not enabled; tests and the production build were run locally.
+
+The initial imagery audit, methodology assessment, CSV study summary and verification images are archived under `research/analysis/`. They document the investigation and initial unreviewed outputs; the app's current model results and review controls are the operational source. The older feasibility report predates implementation and describes the state at that time. Python audit dependencies are recorded in `research/requirements.txt`; the reusable audit script is `scripts/audit_imagery.py`.
+
+Completed future project updates should be tested, committed and pushed to this GitHub repository, as recorded in `AGENTS.md`.

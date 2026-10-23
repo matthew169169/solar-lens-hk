@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.90001342797673,
+          22.305136235927627
+        ]
+      },
+      "properties": {
+        "id": "HAECO-demonstration-001",
+        "source_image": "2025HAECO.tif",
+        "year_from_filename": 2025,
+        "source_crs": "EPSG:2326",
+        "easting_m": 807740.21,
+        "northing_m": 818490.65,
+        "pixel_column": 4003,
+        "pixel_row": 1822,
+        "status": "manually identified array location; not a complete inventory",
+        "module_count": null,
+        "net_panel_area_m2": null,
+        "location_accuracy": "not independently validated"
+      }
+    }
+  ]
+}

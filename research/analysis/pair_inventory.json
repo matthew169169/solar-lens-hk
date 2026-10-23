@@ -1,0 +1,101 @@
+[
+  {
+    "site": "cheungchau",
+    "old_file": "2016cheungchau.TIF",
+    "new_file": "2025cheungchau.tif",
+    "year_gap_from_filenames": 9,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "fairviewpark",
+    "old_file": "2016Fairviewpark.TIF",
+    "new_file": "2025fairviewpark.tif",
+    "year_gap_from_filenames": 9,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "haeco",
+    "old_file": "2017HAECO.TIF",
+    "new_file": "2025HAECO.tif",
+    "year_gap_from_filenames": 8,
+    "same_bounds_within_1mm": false,
+    "needs_georeferencing": true,
+    "image_registration_verified": false
+  },
+  {
+    "site": "honglokyuen",
+    "old_file": "2017HongLokYuen.TIF",
+    "new_file": "2026HongLokYuen.tif",
+    "year_gap_from_filenames": 9,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "lamma",
+    "old_file": "2017Lamma.TIF",
+    "new_file": "2025Lamma.tif",
+    "year_gap_from_filenames": 8,
+    "same_bounds_within_1mm": false,
+    "needs_georeferencing": true,
+    "image_registration_verified": false
+  },
+  {
+    "site": "saikung",
+    "old_file": "2016Saikung.TIF",
+    "new_file": "2025Saikung.tif",
+    "year_gap_from_filenames": 9,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "sheko",
+    "old_file": "2017sheko.TIF",
+    "new_file": "2025sheko.tif",
+    "year_gap_from_filenames": 8,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "taipo",
+    "old_file": "2016Taipo.TIF",
+    "new_file": "2026Taipo.tif",
+    "year_gap_from_filenames": 10,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "tmt",
+    "old_file": "2016TMT.TIF",
+    "new_file": "2026TMT.tif",
+    "year_gap_from_filenames": 10,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "yl",
+    "old_file": "2016YL.TIF",
+    "new_file": "2026YL.tif",
+    "year_gap_from_filenames": 10,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  },
+  {
+    "site": "ymt",
+    "old_file": "2017YMT.TIF",
+    "new_file": "2025YMT.tif",
+    "year_gap_from_filenames": 8,
+    "same_bounds_within_1mm": true,
+    "needs_georeferencing": false,
+    "image_registration_verified": false
+  }
+]
