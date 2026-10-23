@@ -1,0 +1,84 @@
+{
+  "pairs": [
+    {
+      "id": "haeco",
+      "title": "HAECO \u00b7 Airport",
+      "path": "demo/haeco.json",
+      "olderYear": 2017,
+      "newerYear": 2025
+    },
+    {
+      "id": "fairviewpark",
+      "title": "Fairview Park",
+      "path": "demo/fairviewpark.json",
+      "olderYear": 2016,
+      "newerYear": 2025
+    },
+    {
+      "id": "honglokyuen",
+      "title": "Hong Lok Yuen",
+      "path": "demo/honglokyuen.json",
+      "olderYear": 2017,
+      "newerYear": 2026
+    },
+    {
+      "id": "lamma",
+      "title": "Lamma Island",
+      "path": "demo/lamma.json",
+      "olderYear": 2017,
+      "newerYear": 2025
+    },
+    {
+      "id": "saikung",
+      "title": "Sai Kung",
+      "path": "demo/saikung.json",
+      "olderYear": 2016,
+      "newerYear": 2025
+    },
+    {
+      "id": "taipo",
+      "title": "Tai Po",
+      "path": "demo/taipo.json",
+      "olderYear": 2016,
+      "newerYear": 2026
+    },
+    {
+      "id": "tmt",
+      "title": "TMT",
+      "path": "demo/tmt.json",
+      "olderYear": 2016,
+      "newerYear": 2026
+    },
+    {
+      "id": "yl",
+      "title": "Yuen Long",
+      "path": "demo/yl.json",
+      "olderYear": 2016,
+      "newerYear": 2026
+    },
+    {
+      "id": "cheungchau",
+      "title": "Cheung Chau",
+      "path": "demo/cheungchau.json",
+      "olderYear": 2016,
+      "newerYear": 2025
+    },
+    {
+      "id": "ymt",
+      "title": "Yau Ma Tei",
+      "path": "demo/ymt.json",
+      "olderYear": 2017,
+      "newerYear": 2025
+    },
+    {
+      "id": "sheko",
+      "title": "Shek O",
+      "path": "demo/sheko.json",
+      "olderYear": 2017,
+      "newerYear": 2025
+    }
+  ],
+  "model": "finloop/yolov8s-seg-solar-panels",
+  "modelWeightsSha256": "9379f467a6e97a72bbda1ff81096e56f8f87831660b29436fc5783a043e0b94b",
+  "notice": "AI candidate arrays are unreviewed and can contain missed panels or false positives. Counts require manual review or explicit module-area estimates. Years come from filenames. Previews are reduced copies; originals are not published."
+}
