@@ -44,6 +44,7 @@ try {
   const changes = git(['diff', '--cached', '--quiet'], temporary, true);
   if (changes.status !== 0) git(['-c', 'user.name=Solar Lens Deploy', '-c', 'user.email=solar-lens@users.noreply.github.com', 'commit', '-m', `Deploy Solar Lens from ${sha.slice(0, 7)}`]);
   git(['push', 'origin', `${ref}:${ref}`]);
+  const publishingCommit = git(['rev-parse', 'HEAD']).stdout.trim();
   const endpoint = `repos/${repository}/pages`;
   const before = run('gh', ['api', endpoint], process.cwd(), true);
   const body = JSON.stringify({ build_type: 'legacy', source: { branch: ref, path: '/docs' } });
@@ -63,7 +64,30 @@ try {
     result = run('gh', ['api', endpoint]);
   }
   const site = JSON.parse(result.stdout);
-  console.log(JSON.stringify({ repository, source_commit: sha, branch: ref, status: site.status, url: site.html_url, public: site.public }));
+  // A successful push or an old "built" site status is not confirmation that
+  // this release is live. Wait for this branch commit and its public manifest.
+  const deadline = Date.now() + 10 * 60 * 1000;
+  let live = false, lastStatus = '';
+  while (Date.now() < deadline) {
+    const buildResult = run('gh', ['api', `${endpoint}/builds/latest`], process.cwd(), true);
+    if (buildResult.status === 0) {
+      const build = JSON.parse(buildResult.stdout);
+      if (build.commit === publishingCommit && build.status === 'errored') throw new Error(build.error?.message || 'GitHub Pages build failed.');
+      if (build.commit === publishingCommit && build.status === 'built') {
+        const verification = new URL('deployment.json', site.html_url);
+        verification.searchParams.set('release', publishingCommit);
+        try {
+          const response = await fetch(verification, { signal: AbortSignal.timeout(15000) });
+          if (response.ok && (await response.json()).source_commit === sha) { live = true; break; }
+        } catch { /* Allow the public CDN to catch up with the completed build. */ }
+      }
+      const message = build.commit === publishingCommit ? build.status : 'queued';
+      if (message !== lastStatus) { console.log(`GitHub Pages: ${message}`); lastStatus = message; }
+    }
+    await new Promise(resolve => setTimeout(resolve, 10000));
+  }
+  if (!live) throw new Error('Deployment was pushed, but GitHub Pages did not confirm this release within ten minutes. Inspect the existing build before retrying.');
+  console.log(JSON.stringify({ repository, source_commit: sha, publishing_commit: publishingCommit, branch: ref, status: 'built', url: site.html_url, public: site.public }));
 } finally {
   rmSync(temporary, { recursive: true, force: true });
 }
