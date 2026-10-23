@@ -2,6 +2,14 @@
 
 A working, browser-based solar-photo comparison tool. Upload an older and newer aerial photo, run local AI segmentation, review solar areas, compare panel-count estimates and net area, and export WGS84 locations.
 
+## GitHub Pages
+
+Run `npm run deploy:github` after committing and pushing source updates. This verifies the app, builds it, and publishes the `gh-pages` branch in the repository configured by `github-pages.json`, with `/docs` as the publishing directory. It uses GitHub's built-in branch deployment and does not require workflow-write scope. The GitHub CLI must already be authenticated with repository administration access.
+
+The publishing branch contains application source and approved study assets, plus the compiled website under `docs/`. The website also offers `source.tar.gz` as corresponding application source. Uploads are processed in the visitor's browser; they are not sent to GitHub. The user explicitly approved publishing all supplied study previews and derived panel locations on the public Pages website on 23 October 2026. The original giant TIFF collection is excluded.
+
+Pages from a private repository requires an eligible GitHub plan. If it is unavailable, deploy to a separate public web repository while keeping the original source/research repository private. To target another existing repository, use `node scripts/deploy-github-pages.mjs owner/repository` after `npm run build`.
+
 ## Run
 
 Requires Node.js 22 or newer.
