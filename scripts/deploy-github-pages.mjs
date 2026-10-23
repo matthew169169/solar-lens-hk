@@ -47,15 +47,20 @@ try {
   const endpoint = `repos/${repository}/pages`;
   const before = run('gh', ['api', endpoint], process.cwd(), true);
   const body = JSON.stringify({ build_type: 'legacy', source: { branch: ref, path: '/docs' } });
-  let result;
-  if (before.status === 0) {
-    const site = JSON.parse(before.stdout);
-    if (site.source?.branch !== ref || site.source?.path !== '/docs') run('gh', ['api', '--method', 'PUT', endpoint, '--input', '-'], process.cwd(), false, body);
+  let result = before;
+  if (before.status !== 0 && /404|Not Found/.test(before.stderr + before.stdout)) {
+    const created = run('gh', ['api', '--method', 'POST', endpoint, '--input', '-'], process.cwd(), true, body);
+    // A concurrent UI setup or propagation delay can make GET return 404 just
+    // before POST returns 409. Reuse the existing site; never duplicate it.
+    if (created.status !== 0 && !/409|already enabled/.test(created.stderr + created.stdout)) throw new Error(created.stderr || 'Could not enable Pages.');
     result = run('gh', ['api', endpoint]);
-  } else if (/404|Not Found/.test(before.stderr + before.stdout)) {
-    result = run('gh', ['api', '--method', 'POST', endpoint, '--input', '-'], process.cwd(), false, body);
-  } else {
+  } else if (before.status !== 0) {
     throw new Error(before.stderr || 'Could not inspect Pages settings.');
+  }
+  const existing = JSON.parse(result.stdout);
+  if (existing.source?.branch !== ref || existing.source?.path !== '/docs' || existing.build_type !== 'legacy') {
+    run('gh', ['api', '--method', 'PUT', endpoint, '--input', '-'], process.cwd(), false, body);
+    result = run('gh', ['api', endpoint]);
   }
   const site = JSON.parse(result.stdout);
   console.log(JSON.stringify({ repository, source_commit: sha, branch: ref, status: site.status, url: site.html_url, public: site.public }));

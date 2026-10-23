@@ -4,6 +4,8 @@ A working, browser-based solar-photo comparison tool. Upload an older and newer 
 
 ## GitHub Pages
 
+Public website: **https://matthew169169.github.io/solar-lens-hk/**. Source: **https://github.com/matthew169169/solar-lens-hk**. The separate Sites deployment retains its private access settings.
+
 Run `npm run deploy:github` after committing and pushing source updates. This verifies the app, builds it, and publishes the `gh-pages` branch in the repository configured by `github-pages.json`, with `/docs` as the publishing directory. It uses GitHub's built-in branch deployment and does not require workflow-write scope. The GitHub CLI must already be authenticated with repository administration access.
 
 The publishing branch contains application source and approved study assets, plus the compiled website under `docs/`. The website also offers `source.tar.gz` as corresponding application source. Uploads are processed in the visitor's browser; they are not sent to GitHub. The user explicitly approved publishing all supplied study previews and derived panel locations on the public Pages website on 23 October 2026. The original giant TIFF collection is excluded.
@@ -72,7 +74,7 @@ The application builds as static files and works on GitHub Pages, Cloudflare Pag
 
 Uploaded photo pixels and reviewed project records remain in the browser; no upload or analytics endpoint exists. Fonts load from Google Fonts, and the map requests OpenStreetMap basemap tiles. The host sees ordinary asset requests. Basemap requests disclose the approximate map view to the tile provider. No private photo content is sent with those requests.
 
-The `.openai/hosting.json` file belongs to this project's private Sites deployment. For a separately cloned deployment, use your own host configuration rather than reusing that project identifier. New GitHub repository and Sites publication are private unless explicitly changed by the owner.
+The `.openai/hosting.json` file belongs to this project's private Sites deployment. For a separately cloned deployment, use your own host configuration rather than reusing that project identifier. The GitHub repository and Pages website are now public, with the user's explicit approval for the supplied study data; the separate Sites publication remains private.
 
 ## Operational limits
 
