@@ -1,0 +1,64 @@
+import { spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+// Publish compiled assets, not private source history. No GitHub Actions workflow
+// permission is required: GitHub's built-in branch deployment handles Pages.
+const config = JSON.parse(readFileSync('github-pages.json', 'utf8'));
+const repository = process.argv[2] || config.repository;
+if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('Expected owner/repository.');
+if (!existsSync('dist/index.html')) throw new Error('Run npm run build before deployment.');
+const run = (command, args, cwd = process.cwd(), allowFailure = false, input) => {
+  const r = spawnSync(command, args, { cwd, encoding: 'utf8', input, maxBuffer: 20 * 1024 * 1024 });
+  if (!allowFailure && r.status !== 0) throw new Error((r.stderr || r.stdout || r.error?.message || `${command} failed`).trim());
+  return r;
+};
+const remote = `https://github.com/${repository}.git`;
+const ref = config.branch || 'gh-pages';
+if (!/^[a-zA-Z0-9_-]+$/.test(ref)) throw new Error('Invalid publishing branch.');
+const temporary = mkdtempSync(path.join(tmpdir(), 'solar-github-pages-'));
+const git = (args, cwd = temporary, allowFailure = false) => run('git', ['-c', 'credential.helper=!gh auth git-credential', ...args], cwd, allowFailure);
+const current = git(['ls-remote', '--heads', remote, `refs/heads/${ref}`], process.cwd());
+try {
+  if (current.stdout.trim()) {
+    git(['clone', '--depth', '1', '--single-branch', '--branch', ref, remote, '.']);
+  } else {
+    git(['init', '--initial-branch', ref, '.']);
+    git(['remote', 'add', 'origin', remote]);
+  }
+  for (const name of readdirSync(temporary)) if (name !== '.git') rmSync(path.join(temporary, name), { recursive: true, force: true });
+  // Keep corresponding application source with the deployment. Exclude the
+  // private hosting identity and research archive; approved app demo assets stay.
+  const tracked = run('git', ['ls-files', '-z']).stdout.split('\0').filter(Boolean);
+  for (const file of tracked) {
+    if (file.startsWith('research/') || file.startsWith('.openai/') || file.startsWith('.github/')) continue;
+    cpSync(path.resolve(file), path.join(temporary, file), { recursive: true });
+  }
+  cpSync(path.resolve('dist'), path.join(temporary, 'docs'), { recursive: true });
+  writeFileSync(path.join(temporary, 'docs/.nojekyll'), '');
+  const sha = run('git', ['rev-parse', 'HEAD']).stdout.trim();
+  writeFileSync(path.join(temporary, 'docs/deployment.json'), JSON.stringify({ repository, source_commit: sha, generated_at: new Date().toISOString() }, null, 2));
+  run('tar', ['-czf', 'docs/source.tar.gz', '--exclude=./.git', '--exclude=./docs', '.'], temporary);
+  git(['add', '--all']);
+  const changes = git(['diff', '--cached', '--quiet'], temporary, true);
+  if (changes.status !== 0) git(['-c', 'user.name=Solar Lens Deploy', '-c', 'user.email=solar-lens@users.noreply.github.com', 'commit', '-m', `Deploy Solar Lens from ${sha.slice(0, 7)}`]);
+  git(['push', 'origin', `${ref}:${ref}`]);
+  const endpoint = `repos/${repository}/pages`;
+  const before = run('gh', ['api', endpoint], process.cwd(), true);
+  const body = JSON.stringify({ build_type: 'legacy', source: { branch: ref, path: '/docs' } });
+  let result;
+  if (before.status === 0) {
+    const site = JSON.parse(before.stdout);
+    if (site.source?.branch !== ref || site.source?.path !== '/docs') run('gh', ['api', '--method', 'PUT', endpoint, '--input', '-'], process.cwd(), false, body);
+    result = run('gh', ['api', endpoint]);
+  } else if (/404|Not Found/.test(before.stderr + before.stdout)) {
+    result = run('gh', ['api', '--method', 'POST', endpoint, '--input', '-'], process.cwd(), false, body);
+  } else {
+    throw new Error(before.stderr || 'Could not inspect Pages settings.');
+  }
+  const site = JSON.parse(result.stdout);
+  console.log(JSON.stringify({ repository, source_commit: sha, branch: ref, status: site.status, url: site.html_url, public: site.public }));
+} finally {
+  rmSync(temporary, { recursive: true, force: true });
+}

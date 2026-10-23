@@ -1,0 +1,760 @@
+[
+  {
+    "file": "2016Fairviewpark.TIF",
+    "year_from_filename": 2016,
+    "site": "fairviewpark",
+    "width": 15000,
+    "height": 12000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.05,
+      0.05
+    ],
+    "bounds": [
+      822500.0,
+      837200.0,
+      823250.0,
+      837800.0
+    ],
+    "transform": [
+      0.05,
+      0.0,
+      822500.0,
+      0.0,
+      -0.05,
+      837800.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2016Saikung.TIF",
+    "year_from_filename": 2016,
+    "site": "saikung",
+    "width": 5000,
+    "height": 4000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.15,
+      0.15
+    ],
+    "bounds": [
+      843500.0,
+      823400.0,
+      844250.0,
+      824000.0
+    ],
+    "transform": [
+      0.15,
+      0.0,
+      843500.0,
+      0.0,
+      -0.15,
+      824000.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap Aerial v5.3.0.1 (Build 35.1.2107.501)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2016TMT.TIF",
+    "year_from_filename": 2016,
+    "site": "tmt",
+    "width": 5000,
+    "height": 4000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.15,
+      0.15
+    ],
+    "bounds": [
+      841250.0,
+      836600.0,
+      842000.0,
+      837200.0
+    ],
+    "transform": [
+      0.15,
+      0.0,
+      841250.0,
+      0.0,
+      -0.15,
+      837200.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap Aerial v5.3.0.1 (Build 35.1.2107.501)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2016Taipo.TIF",
+    "year_from_filename": 2016,
+    "site": "taipo",
+    "width": 5000,
+    "height": 4000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.15,
+      0.15
+    ],
+    "bounds": [
+      839000.0,
+      835400.0,
+      839750.0,
+      836000.0
+    ],
+    "transform": [
+      0.15,
+      0.0,
+      839000.0,
+      0.0,
+      -0.15,
+      836000.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap Aerial v5.3.0.1 (Build 35.1.2107.501)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2016YL.TIF",
+    "year_from_filename": 2016,
+    "site": "yl",
+    "width": 12500,
+    "height": 10000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.06,
+      0.06
+    ],
+    "bounds": [
+      815750.0,
+      831200.0,
+      816500.0,
+      831800.0
+    ],
+    "transform": [
+      0.06,
+      0.0,
+      815750.0,
+      0.0,
+      -0.06,
+      831800.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap Ortho Processor 24.11.1902.1501",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2016cheungchau.TIF",
+    "year_from_filename": 2016,
+    "site": "cheungchau",
+    "width": 18750,
+    "height": 15000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.04,
+      0.04
+    ],
+    "bounds": [
+      821000.0,
+      807200.0,
+      821750.0,
+      807800.0
+    ],
+    "transform": [
+      0.04,
+      0.0,
+      821000.0,
+      0.0,
+      -0.04,
+      807800.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2017HAECO.TIF",
+    "year_from_filename": 2017,
+    "site": "haeco",
+    "width": 15000,
+    "height": 12000,
+    "bands": 4,
+    "crs": null,
+    "pixel_size_m": null,
+    "bounds": null,
+    "transform": [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {},
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2017HongLokYuen.TIF",
+    "year_from_filename": 2017,
+    "site": "honglokyuen",
+    "width": 12500,
+    "height": 10000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.06,
+      0.06
+    ],
+    "bounds": [
+      833750.0,
+      835400.0,
+      834500.0,
+      836000.0
+    ],
+    "transform": [
+      0.06,
+      0.0,
+      833750.0,
+      0.0,
+      -0.06,
+      836000.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2017Lamma.TIF",
+    "year_from_filename": 2017,
+    "site": "lamma",
+    "width": 5355,
+    "height": 4284,
+    "bands": 4,
+    "crs": null,
+    "pixel_size_m": null,
+    "bounds": null,
+    "transform": [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {},
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2017YMT.TIF",
+    "year_from_filename": 2017,
+    "site": "ymt",
+    "width": 15000,
+    "height": 12000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.05,
+      0.05
+    ],
+    "bounds": [
+      835250.0,
+      819800.0,
+      836000.0,
+      820400.0
+    ],
+    "transform": [
+      0.05,
+      0.0,
+      835250.0,
+      0.0,
+      -0.05,
+      820400.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2017sheko.TIF",
+    "year_from_filename": 2017,
+    "site": "sheko",
+    "width": 6250,
+    "height": 5000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.12,
+      0.12
+    ],
+    "bounds": [
+      835250.0,
+      815000.0,
+      836000.0,
+      815600.0
+    ],
+    "transform": [
+      0.12,
+      0.0,
+      835250.0,
+      0.0,
+      -0.12,
+      815600.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_IMAGEDESCRIPTION": "<?xml version='1.0' encoding='UTF-8'?>\n<ImageAttributes>\n <KernelSize>4</KernelSize>\n</ImageAttributes>\n",
+      "TIFFTAG_SOFTWARE": "Trimble Germany GmbH",
+      "TIFFTAG_XRESOLUTION": "1",
+      "TIFFTAG_YRESOLUTION": "1",
+      "TIFFTAG_RESOLUTIONUNIT": "1 (unitless)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2025HAECO.tif",
+    "year_from_filename": 2025,
+    "site": "haeco",
+    "width": 12500,
+    "height": 10000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.06,
+      0.06
+    ],
+    "bounds": [
+      807500.0,
+      818000.0,
+      808250.0,
+      818600.0
+    ],
+    "transform": [
+      0.06,
+      0.0,
+      807500.0,
+      0.0,
+      -0.06,
+      818600.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap v6.4.1.1 (Build 44.5.2410.801)",
+      "TIFFTAG_RESOLUTIONUNIT": "1 (unitless)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2025Lamma.tif",
+    "year_from_filename": 2025,
+    "site": "lamma",
+    "width": 15000,
+    "height": 12000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.05,
+      0.05
+    ],
+    "bounds": [
+      829250.0,
+      809000.0,
+      830000.0,
+      809600.0
+    ],
+    "transform": [
+      0.05,
+      0.0,
+      829250.0,
+      0.0,
+      -0.05,
+      809600.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap v6.4.1.1 (Build 44.5.2410.801)",
+      "TIFFTAG_RESOLUTIONUNIT": "1 (unitless)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2025Saikung.tif",
+    "year_from_filename": 2025,
+    "site": "saikung",
+    "width": 15000,
+    "height": 12000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.05,
+      0.05
+    ],
+    "bounds": [
+      843500.0,
+      823400.0,
+      844250.0,
+      824000.0
+    ],
+    "transform": [
+      0.05,
+      0.0,
+      843500.0,
+      0.0,
+      -0.05,
+      824000.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap v6.4.1.1 (Build 44.5.2410.801)",
+      "TIFFTAG_RESOLUTIONUNIT": "1 (unitless)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2025YMT.tif",
+    "year_from_filename": 2025,
+    "site": "ymt",
+    "width": 12500,
+    "height": 10000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.06,
+      0.06
+    ],
+    "bounds": [
+      835250.0,
+      819800.0,
+      836000.0,
+      820400.0
+    ],
+    "transform": [
+      0.06,
+      0.0,
+      835250.0,
+      0.0,
+      -0.06,
+      820400.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap v6.4.1.1 (Build 44.5.2410.801)",
+      "TIFFTAG_RESOLUTIONUNIT": "1 (unitless)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2025cheungchau.tif",
+    "year_from_filename": 2025,
+    "site": "cheungchau",
+    "width": 15000,
+    "height": 12000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.05,
+      0.05
+    ],
+    "bounds": [
+      821000.0,
+      807200.0,
+      821750.0,
+      807800.0
+    ],
+    "transform": [
+      0.05,
+      0.0,
+      821000.0,
+      0.0,
+      -0.05,
+      807800.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap v6.4.1.1 (Build 44.5.2410.801)",
+      "TIFFTAG_RESOLUTIONUNIT": "1 (unitless)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2025fairviewpark.tif",
+    "year_from_filename": 2025,
+    "site": "fairviewpark",
+    "width": 18750,
+    "height": 15000,
+    "bands": 3,
+    "crs": "PROJCS[\"Hong Kong 1980 Grid System\",GEOGCS[\"Hong Kong 1980\",DATUM[\"Hong_Kong_1980\",SPHEROID[\"International 1924\",6378388,297.000000028404,AUTHORITY[\"EPSG\",\"7022\"]],AUTHORITY[\"EPSG\",\"6611\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4611\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",22.3121333333333],PARAMETER[\"central_meridian\",114.178555555559],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",836694.05],PARAMETER[\"false_northing\",819069.8],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"2326\"]]",
+    "pixel_size_m": [
+      0.04,
+      0.04
+    ],
+    "bounds": [
+      822500.0000000009,
+      837200.0000000019,
+      823250.0000000009,
+      837800.0000000019
+    ],
+    "transform": [
+      0.04,
+      0.0,
+      822500.0000000009,
+      0.0,
+      -0.04,
+      837800.0000000019,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "Global Mapper",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2025sheko.tif",
+    "year_from_filename": 2025,
+    "site": "sheko",
+    "width": 15000,
+    "height": 12000,
+    "bands": 4,
+    "crs": "EPSG:2326",
+    "pixel_size_m": [
+      0.05,
+      0.05
+    ],
+    "bounds": [
+      835250.0,
+      815000.0,
+      836000.0,
+      815600.0
+    ],
+    "transform": [
+      0.05,
+      0.0,
+      835250.0,
+      0.0,
+      -0.05,
+      815600.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "UltraMap v6.4.1.1 (Build 44.5.2410.801)",
+      "TIFFTAG_RESOLUTIONUNIT": "1 (unitless)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2026HongLokYuen.tif",
+    "year_from_filename": 2026,
+    "site": "honglokyuen",
+    "width": 7500,
+    "height": 6000,
+    "bands": 3,
+    "crs": "PROJCS[\"Hong Kong 1980 Grid System\",GEOGCS[\"Hong Kong 1980\",DATUM[\"Hong_Kong_1980\",SPHEROID[\"International 1924\",6378388,297.000000028404,AUTHORITY[\"EPSG\",\"7022\"]],AUTHORITY[\"EPSG\",\"6611\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4611\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",22.3121333333333],PARAMETER[\"central_meridian\",114.178555555559],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",836694.05],PARAMETER[\"false_northing\",819069.8],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"2326\"]]",
+    "pixel_size_m": [
+      0.1,
+      0.1
+    ],
+    "bounds": [
+      833750.0,
+      835400.0,
+      834500.0,
+      836000.0
+    ],
+    "transform": [
+      0.1,
+      0.0,
+      833750.0,
+      0.0,
+      -0.1,
+      836000.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "Global Mapper",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2026TMT.tif",
+    "year_from_filename": 2026,
+    "site": "tmt",
+    "width": 7500,
+    "height": 6000,
+    "bands": 3,
+    "crs": "PROJCS[\"Hong Kong 1980 Grid System\",GEOGCS[\"Hong Kong 1980\",DATUM[\"Hong_Kong_1980\",SPHEROID[\"International 1924\",6378388,297.000000000005,AUTHORITY[\"EPSG\",\"7022\"]],AUTHORITY[\"EPSG\",\"6611\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4611\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",22.3121333333333],PARAMETER[\"central_meridian\",114.178555555556],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",836694.05],PARAMETER[\"false_northing\",819069.8],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"2326\"]]",
+    "pixel_size_m": [
+      0.1,
+      0.1
+    ],
+    "bounds": [
+      841250.0,
+      836600.0,
+      842000.0,
+      837200.0
+    ],
+    "transform": [
+      0.1,
+      0.0,
+      841250.0,
+      0.0,
+      -0.1,
+      837200.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "Adobe Photoshop 27.8 (Windows)",
+      "TIFFTAG_DATETIME": "2026:07:28 10:45:11",
+      "TIFFTAG_XRESOLUTION": "72",
+      "TIFFTAG_YRESOLUTION": "72",
+      "TIFFTAG_RESOLUTIONUNIT": "2 (pixels/inch)",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2026Taipo.tif",
+    "year_from_filename": 2026,
+    "site": "taipo",
+    "width": 7500,
+    "height": 6000,
+    "bands": 3,
+    "crs": "PROJCS[\"Hong Kong 1980 Grid System\",GEOGCS[\"Hong Kong 1980\",DATUM[\"Hong_Kong_1980\",SPHEROID[\"International 1924\",6378388,297.000000028404,AUTHORITY[\"EPSG\",\"7022\"]],AUTHORITY[\"EPSG\",\"6611\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4611\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",22.3121333333333],PARAMETER[\"central_meridian\",114.178555555559],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",836694.05],PARAMETER[\"false_northing\",819069.8],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"2326\"]]",
+    "pixel_size_m": [
+      0.1,
+      0.1
+    ],
+    "bounds": [
+      839000.0,
+      835400.0,
+      839750.0,
+      836000.0
+    ],
+    "transform": [
+      0.1,
+      0.0,
+      839000.0,
+      0.0,
+      -0.1,
+      836000.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "Global Mapper",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  },
+  {
+    "file": "2026YL.tif",
+    "year_from_filename": 2026,
+    "site": "yl",
+    "width": 7500,
+    "height": 6000,
+    "bands": 3,
+    "crs": "PROJCS[\"Hong Kong 1980 Grid System\",GEOGCS[\"Hong Kong 1980\",DATUM[\"Hong_Kong_1980\",SPHEROID[\"International 1924\",6378388,297.000000000005,AUTHORITY[\"EPSG\",\"7022\"]],AUTHORITY[\"EPSG\",\"6611\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4611\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",22.3121333333333],PARAMETER[\"central_meridian\",114.178555555556],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",836694.05],PARAMETER[\"false_northing\",819069.8],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"2326\"]]",
+    "pixel_size_m": [
+      0.1,
+      0.1
+    ],
+    "bounds": [
+      815750.0000000009,
+      831200.0000000019,
+      816500.0000000009,
+      831800.0000000019
+    ],
+    "transform": [
+      0.1,
+      0.0,
+      815750.0000000009,
+      0.0,
+      -0.1,
+      831800.0000000019,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "tags": {
+      "TIFFTAG_SOFTWARE": "Global Mapper",
+      "AREA_OR_POINT": "Area"
+    },
+    "acquisition_date_verified": false
+  }
+]
