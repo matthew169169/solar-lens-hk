@@ -25,7 +25,7 @@ npm run dev
 
 ## Features
 
-- Upload local GeoTIFF, JPEG, PNG or WebP imagery. GeoTIFF reads use Blob windows instead of uploading the file or loading a complete large image into a single canvas.
+- Upload local GeoTIFF, JPEG, PNG or WebP imagery. GeoTIFF reads use Blob windows and native-pixel-bounded bands, including previews, so the TIFF reader does not allocate an entire giant image before resampling. Detection and preview images remain local.
 - Tiled, real YOLOv8s solar segmentation in a Web Worker through ONNX Runtime Web (WASM, one thread, no cross-origin-isolation requirement).
 - Non-overlapping tile-core ownership and polygon union avoid double-counting overlapping mask area. Interior holes are preserved.
 - Separate older/newer images, editable dates, coverage checks, zoom/pan, native-detail decoding for original uploads, and clickable outlines.
