@@ -1,5 +1,6 @@
 import { fromBlob } from 'geotiff';
 import proj4 from 'proj4';
+import { rasterBands } from './raster-bands.js';
 
 export function canvas(width, height) {
   const c = document.createElement('canvas'); c.width = width; c.height = height; return c;
@@ -33,13 +34,21 @@ export async function openImage(file) {
     const metric = !!(crs && (code === 2326 || code === 3857 || (code >= 32601 && code <= 32760) || keys?.ProjLinearUnitsGeoKey === 9001));
     meta = { width: im.getWidth(), height: im.getHeight(), affine, crs, metric, georefSource: affine && crs ? 'embedded GeoTIFF' : 'missing', original: true };
     read = async (window, width, height) => {
-      const rgb = await im.readRGB({ window: window.map(Math.round), width, height, resampleMethod: 'bilinear', interleave: true });
-      // readRGB can return RGBA on some TIFF versions; select RGB explicitly.
-      const channels = rgb.length / (width * height);
-      if (channels === 3) return imageDataCanvas(rgb, width, height);
-      const c = canvas(width, height), rgba = new Uint8ClampedArray(width * height * 4);
-      for (let i = 0; i < width * height; i++) { for (let j = 0; j < 3; j++) rgba[i * 4 + j] = rgb[i * channels + j]; rgba[i * 4 + 3] = 255; }
-      c.getContext('2d').putImageData(new ImageData(rgba, width, height), 0, 0); return c;
+      const c = canvas(width, height), ctx = c.getContext('2d');
+      const bands = rasterBands(window, width, height);
+      for (const band of bands) {
+        const rgb = await im.readRGB({ window: band.window, width: band.width, height: band.height, resampleMethod: 'bilinear', interleave: true });
+        // readRGB can return RGBA on some TIFF versions; select RGB explicitly.
+        const channels = rgb.length / (band.width * band.height);
+        if (channels === 3) ctx.drawImage(imageDataCanvas(rgb, band.width, band.height), 0, band.y);
+        else {
+          const rgba = new Uint8ClampedArray(band.width * band.height * 4);
+          for (let i = 0; i < band.width * band.height; i++) { for (let j = 0; j < 3; j++) rgba[i * 4 + j] = rgb[i * channels + j]; rgba[i * 4 + 3] = 255; }
+          ctx.putImageData(new ImageData(rgba, band.width, band.height), 0, band.y);
+        }
+        if (bands.length > 1) await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      return c;
     };
   } else {
     const bitmap = await createImageBitmap(file);
