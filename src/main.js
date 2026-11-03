@@ -6,6 +6,8 @@ import 'leaflet/dist/leaflet.css';
 import { History, changeFeatures } from './history.js';
 import { validateProject, normalizeSettings, mergeLibrary, isOriginalReattachment, restoreImages } from './project-data.js';
 import { createSaveQueue } from './persistence.js';
+import { isOriginalStudy, shouldStoreStudy, planLibraryCleanup } from './library-policy.js';
+import { openDatabase, readRecords, writeRecords, archiveRecords, restoreRecord, forgetRemoved } from './library-storage.js';
 import { summary, cachedGeojson } from './measurement-cache.js';
 import clipping from 'polygon-clipping';
 import { planScan, commitScan, previewDimensions, scanWorkload, comparisonQuality } from './scan-plan.js';
@@ -35,6 +37,7 @@ const formatters = new Map();
 const number = (v, digits = 0) => { if(v == null || !Number.isFinite(v))return '—';if(!formatters.has(digits))formatters.set(digits,new Intl.NumberFormat('en',{maximumFractionDigits:digits}));return formatters.get(digits).format(v); };
 const state = { title: 'Hong Kong solar survey', images: [null, null], settings: { tilt: '0', moduleArea: '2.2', threshold: '.35', gsd: '.10' }, tab: 'overview', active: 1, selected: null, overlay: true, tool: 'select', drawing: [], busy: false, progress: 0, status: '', views: [null, null], manifest: [], filter: 'all' };
 Object.assign(state, { projectId: crypto.randomUUID(), projects: [], loading: [false, false], areaSearch: '', areaSort: 'id', page: 0, studySearch: '', studySource: 'all', studySort: 'name', sync: true, mapPeriod: '1' });
+Object.assign(state, { saveMode: 'trial', removed: [], initializing: true, libraryBusy: false });
 let leaflet, leafletLoading, toastTimer, workspaceEpoch=0;
 const history = new History(20);
 state.areaSelection = new Set();
@@ -46,24 +49,29 @@ root.innerHTML = layout(icon);
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
 function error(message) { $('#error').textContent = message; $('#error-panel').hidden = !message; }
 function serialize() {
-  return { version: 1, id: state.projectId, active: state.active, autoDetect: $('#auto-detect').checked, title: state.title, datasetId: state.datasetId || null, updatedAt: state.updatedAt || new Date().toISOString(), settings: { ...state.settings }, images: state.images.map(im => im ? { name: im.name, sizeBytes: im.sizeBytes, sampleFingerprint: im.sampleFingerprint, previewSize: im.previewSize, date: im.date, meta: { ...im.meta, original: false }, preview: im.preview, features: im.features.map(f=>({...f})), analyzed: im.analyzed, run: im.run } : null) };
+  return { version: 1, id: state.projectId, saveMode: state.saveMode, active: state.active, autoDetect: $('#auto-detect').checked, title: state.title, datasetId: state.datasetId || null, updatedAt: state.updatedAt || new Date().toISOString(), settings: { ...state.settings }, images: state.images.map(im => im ? { name: im.name, sizeBytes: im.sizeBytes, sampleFingerprint: im.sampleFingerprint, previewSize: im.previewSize, date: im.date, meta: { ...im.meta, original: false }, preview: im.preview, features: im.features.map(f=>({...f})), analyzed: im.analyzed, run: im.run } : null) };
 }
 let databasePromise;
 function database() {
-  if(!databasePromise) databasePromise=new Promise((resolve,reject)=>{
-    const req=indexedDB.open('solar-lens-hk',2);
-    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('projects'))req.result.createObjectStore('projects');if(!req.result.objectStoreNames.contains('saved'))req.result.createObjectStore('saved',{keyPath:'id'});};
-    req.onsuccess=()=>{req.result.onversionchange=()=>{req.result.close();databasePromise=null;};resolve(req.result);};
-    req.onerror=()=>{databasePromise=null;reject(req.error);};
-  });
+  if(!databasePromise) databasePromise=openDatabase().then(db=>{db.onversionchange=()=>{db.close();databasePromise=null;};return db;}).catch(error=>{databasePromise=null;throw error;});
   return databasePromise;
 }
 const saves=createSaveQueue(async(current,records)=>{
   const db=await database();
-  await new Promise((resolve,reject)=>{const tx=db.transaction(['projects','saved'],'readwrite');tx.objectStore('projects').put(current,'current');for(const item of records)if(item.images.some(Boolean))tx.objectStore('saved').put(item);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Storage transaction was interrupted.'));});
-},status=>{$('#save-status').textContent=status==='saving'?'Saving…':status==='saved'?'Saved on this device':'Save failed · export a backup';$('#retry-save').hidden=status!=='error';});
+  await writeRecords(db,current,records);
+},status=>{state.storageStatus=status;updateSaveControls();});
+function updateSaveControls(){
+  const trial=state.saveMode==='trial';
+  $('#save-status').textContent=state.initializing?'Preparing library…':trial?'Trial · not saved':!state.images.some(Boolean)?'Save selected · add a photo':state.storageStatus==='saving'?'Saving…':state.storageStatus==='error'?'Save failed · export a backup':'Saved on this device';
+  $('#retry-save').hidden=trial||state.storageStatus!=='error';
+  $('#save-study').hidden=!trial;
+  $('#save-study').disabled=state.busy||state.initializing||state.libraryBusy||state.loading.some(v=>v!==false)||!state.images.some(Boolean);
+  $('#trial-note').hidden=!trial;
+}
 function save() {
+  if(state.initializing||state.libraryBusy)return Promise.resolve();
   state.updatedAt=new Date().toISOString();const payload=serialize();
+  if(!shouldStoreStudy(payload)){updateSaveControls();return Promise.resolve();}
   if(payload.images.some(Boolean))state.projects=[...state.projects.filter(p=>p.id!==payload.id),payload];
   return saves.enqueue(payload);
 }
@@ -88,6 +96,7 @@ function restore(data) {
   state.mapPeriod=String(state.active);$('#map-period').querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.mapPeriod===state.mapPeriod));
   if(typeof data.autoDetect==='boolean')$('#auto-detect').checked=data.autoDetect;
   state.projectId=data.id||crypto.randomUUID();state.datasetId=data.datasetId||null;state.title=String(data.title||'Solar study').slice(0,160);state.page=0;
+  state.saveMode=shouldStoreStudy(data)?'saved':'trial';
   state.views=[null,null];state.selected=null;state.tool='select';state.drawing=[];syncInputs();render();
 }
 function syncInputs() { $('#study-title').value = state.title; $('#tilt').value = state.settings.tilt; $('#module-area').value = state.settings.moduleArea; $('#threshold').value = state.settings.threshold; $('#gsd').value = state.settings.gsd; }
@@ -95,6 +104,8 @@ function download(data, name, type = 'application/json') { const url = URL.creat
 function displayCount(s) { return !s ? '—' : `${s.estimated && s.count != null ? '≈ ' : ''}${number(s.count)}`; }
 function delta(a, b, digits = 0) { if (a == null || b == null) return 'Awaiting both results'; const v = b - a; return `${v >= 0 ? '+' : '−'}${number(Math.abs(v), digits)} since older photo`; }
 function renderMetrics() {
+  updateSaveControls();
+  for(const id of ['new-study','site-select','import-project','run-detection','live-sample','restore-library','restore-backup-button']){const el=$('#'+id);if(el)el.disabled=state.initializing||state.libraryBusy||state.busy;}
   const older = summary(state.images[0], state.settings), newer = summary(state.images[1], state.settings);
   const now = state.active === 0 ? older : newer, old = state.active === 0 ? newer : older;
   const other = state.active === 0 ? 'Newer' : 'Older', current = state.images[state.active];
@@ -209,7 +220,7 @@ function updateDetail(index) {
 }
 const uploadVersions = [0,0];
 async function loadUpload(file,index) {
-  if (!file || state.busy) return;
+  if (!file || state.busy || state.initializing || state.libraryBusy) return;
   if(state.sampleLoading)return toast('Wait for the sample photos to load.');
   let loadedImage=null;workspaceEpoch++;studyVersion++; const token=++uploadVersions[index]; state.loading[index]=0; error('');renderImages();
   try {
@@ -217,6 +228,9 @@ async function loadUpload(file,index) {
     if(token!==uploadVersions[index]){releaseImage(im);return;}
     const existing=state.images[index];
     const reattach=isOriginalReattachment(existing,im);
+    if(!reattach&&isOriginalStudy({id:state.projectId,datasetId:state.datasetId})){
+      state.projectId=crypto.randomUUID();state.datasetId=null;state.saveMode='trial';state.title='New photo study';$('#site-select').value='';syncInputs();
+    }
     if(reattach){im.features=existing.features;im.analyzed=existing.analyzed;im.run=existing.run;im.date=existing.date;im.meta={...existing.meta,original:true};}
     releaseImage(existing);history.clear();state.areaSelection.clear();loadedImage=reattach?null:im;state.images[index]=im;state.views[index]=null;state.active=index;state.selected=null;state.page=0;
     toast(reattach?'Original reattached. Reviews are preserved; use Detect current photo to rescan.':'Photo ready. Check the date, scale and location, then run detection.');
@@ -362,7 +376,7 @@ $('#live-sample').onclick = async () => {
       return openImage(new File([await response.blob()], `HAECO-${year}-sample.tif`, { type: 'image/tiff' }));
     }));
     images[0].meta.georefSource = 'registered older crop · approximate';
-    releaseWorkspace();resetReviewFilters();state.images = images; state.projectId=crypto.randomUUID();state.datasetId=null;state.title = 'HAECO · live detection sample';state.active=1;$('#site-select').value='';autoScans.clear(); state.views = [null, null]; state.selected = null; state.tool = 'select'; state.drawing = [];
+    releaseWorkspace();resetReviewFilters();state.images = images; state.projectId=crypto.randomUUID();state.datasetId=null;state.saveMode='trial';state.title = 'HAECO · live detection sample';state.active=1;$('#site-select').value='';autoScans.clear(); state.views = [null, null]; state.selected = null; state.tool = 'select'; state.drawing = [];
     state.sampleLoading=false;state.loading=[false,false];syncInputs(); setTab('overview'); render(); await runDetection({scope:'both'});
   } catch (e) { error(e.message); }
   finally { state.sampleLoading=false;state.loading=[false,false];button.disabled = false;render(); }
@@ -398,11 +412,23 @@ $('#export-csv').onclick = () => {
   if (rows.length === 1) return toast('Run detection or draw an area before exporting.'); download(rows.map(r => r.map(csvCell).join(',')).join('\r\n'), 'solar-lens-measurements.csv', 'text/csv;charset=utf-8');
 };
 $('#import-project').onclick = () => { if (!state.busy && !state.loading.some(v=>v!==false)) $('#project-file').click(); };
-$('#project-file').onchange = async e => { const f = e.target.files[0]; if (!f || state.busy || state.loading.some(v=>v!==false)) return; workspaceEpoch++;studyVersion++;try { if (f.size > 80e6) throw new Error('Project file is too large (maximum 80 MB).'); restore(JSON.parse(await f.text())); save(); toast('Project restored. Saved previews can be scanned; reattach originals for full detail.'); } catch (e) { error(`Could not open project: ${e.message}`); } e.target.value = ''; };
-$('#new-study').onclick = () => { if (state.busy || state.sampleLoading) return; workspaceEpoch++;releaseWorkspace();state.images = [null, null]; state.projectId=crypto.randomUUID();state.datasetId=null;state.active=1;autoScans.clear();resetReviewFilters();studyVersion++;uploadVersions[0]++;uploadVersions[1]++;state.loading=[false,false];state.page=0;state.images=[null,null];state.title = 'Untitled study'; state.views = [null, null]; state.selected = null; state.tool = 'select'; state.drawing = []; $('#site-select').value = ''; syncInputs(); render(); save(); setTab('overview'); toast('New comparison ready. Previous work is saved in your data library.'); };
+$('#project-file').onchange = async e => { const f = e.target.files[0]; if (!f || state.busy || state.initializing || state.libraryBusy || state.loading.some(v=>v!==false)) return; workspaceEpoch++;studyVersion++;try { if (f.size > 80e6) throw new Error('Project file is too large (maximum 80 MB).'); const data=JSON.parse(await f.text());validateProject(data);restore({...data,id:crypto.randomUUID(),datasetId:null,saveMode:'trial'});toast('Project opened as a trial. Choose Save to data library to keep it here.'); } catch (e) { error(`Could not open project: ${e.message}`); } e.target.value = ''; };
+$('#new-study').onclick = () => { if (state.busy || state.sampleLoading || state.initializing || state.libraryBusy) return;$('#new-study-name').value='';$('[name="new-save-mode"][value="trial"]').checked=true;$('#new-study-dialog').showModal(); };
+$('#new-study-form').onsubmit=e=>{
+ e.preventDefault();if(state.busy||state.initializing||state.libraryBusy)return;
+ const mode=$('[name="new-save-mode"]:checked').value,title=$('#new-study-name').value.trim()||'Untitled study';$('#new-study-dialog').close();
+ workspaceEpoch++;releaseWorkspace();state.projectId=crypto.randomUUID();state.datasetId=null;state.saveMode=mode;state.active=1;autoScans.clear();resetReviewFilters();studyVersion++;uploadVersions[0]++;uploadVersions[1]++;state.loading=[false,false];state.images=[null,null];state.title=title;state.views=[null,null];state.selected=null;state.tool='select';state.drawing=[];$('#site-select').value='';syncInputs();render();setTab('overview');updateSaveControls();toast(mode==='trial'?'Trial ready. This place will not be added to your library.':'Place ready. Add a photo to save it in your library.');
+};
+$('#save-study').onclick=async()=>{
+ if(state.busy||state.initializing||state.libraryBusy||state.loading.some(v=>v!==false)||!state.images.some(Boolean))return;
+ const id=state.projectId;state.saveMode='saved';renderMetrics();await save();
+ if(!saves.pending){state.removed=state.removed.filter(r=>r.id!==id);try{await forgetRemoved(await database(),[id]);}catch{/* The saved study remains available even if a stale removed copy cannot be cleared. */}}
+ if(state.tab==='studies')renderStudies();
+ toast(saves.pending?'Save failed. Retry save or export a project copy.':'Place saved to your data library. Future changes save automatically.');
+};
 let studyVersion=0;
 async function loadDemo(id) {
-  if(state.busy||state.loading.some(v=>v!==false))return toast('Finish the current operation before changing studies.');
+  if(state.busy||state.initializing||state.libraryBusy||state.loading.some(v=>v!==false))return toast('Finish the current operation before changing studies.');
   workspaceEpoch++;const version=++studyVersion;error('');
   try{
     const saved=state.projects.find(p=>p.id===id||p.datasetId===id);
@@ -443,10 +469,12 @@ async function renderStudies(){
     $('#study-totals').innerHTML=[['Older panels',totals[0].count,'','Area-based or reviewed count'],['Newer panels',totals[1].count,'','Area-based or reviewed count'],['Older footprint',totals[0].plan,'m²','Included solar area'],['Newer footprint',totals[1].plan,'m²','Included solar area']].map(([name,value,unit,note])=>`<article class="metric-card"><div class="metric-top">${esc(name)}</div><div class="metric-value">${unit||value==null?'':'≈ '}${number(value,unit?1:0)} <small>${unit}</small></div><div class="metric-compare">${note}</div></article>`).join('');
     $('#study-cards').innerHTML=studies.length?studies.map(p=>{
       const a=summary(p.images[0],projectSettings(p,state.settings)),b=summary(p.images[1],projectSettings(p,state.settings)),preview=p.images[1]?.preview||p.images[0]?.preview,max=Math.max(a?.plan||0,b?.plan||0,1);
-      return `<article class="study-card"><div class="study-thumbnail">${preview?`<img src="${esc(preview)}" alt="${esc(p.title)} aerial preview" loading="lazy" decoding="async"/>`:''}<span class="pill">${p.unavailable?'TEMPORARILY UNAVAILABLE':p.source==='mine'?'MY UPLOADS':p.edited?'SUPPLIED · YOUR REVIEW':'SUPPLIED STUDY'}</span></div><div class="study-card-body"><h3>${esc(p.title)}</h3><div class="study-dates">${esc(p.images[0]?.date||'No older photo')} → ${esc(p.images[1]?.date||'No newer photo')}</div><div class="study-comparison"><div><small>OLDER · PANELS</small><strong>${displayCount(a)}</strong><span>${number(a?.plan,1)} m² footprint</span></div><div><small>NEWER · PANELS</small><strong>${displayCount(b)}</strong><span>${number(b?.plan,1)} m² footprint</span></div></div><div class="study-chart" title="Relative older and newer footprint"><i style="width:${(a?.plan||0)/max*50}%"></i><b style="width:${(b?.plan||0)/max*50}%"></b></div><div class="study-card-footer"><span>${number(b?.reviewed||0)} newer areas reviewed</span><button data-open-study="${esc(p.id)}">Open study ${icon('arrow')}</button></div></div></article>`;
+      return `<article class="study-card"><div class="study-thumbnail">${preview?`<img src="${esc(preview)}" alt="${esc(p.title)} aerial preview" loading="lazy" decoding="async"/>`:''}<span class="pill">${p.unavailable?'TEMPORARILY UNAVAILABLE':p.source==='mine'?'MY UPLOADS':p.edited?'SUPPLIED · YOUR REVIEW':'SUPPLIED STUDY'}</span></div><div class="study-card-body"><h3>${esc(p.title)}</h3><div class="study-dates">${esc(p.images[0]?.date||'No older photo')} → ${esc(p.images[1]?.date||'No newer photo')}</div><div class="study-comparison"><div><small>OLDER · PANELS</small><strong>${displayCount(a)}</strong><span>${number(a?.plan,1)} m² footprint</span></div><div><small>NEWER · PANELS</small><strong>${displayCount(b)}</strong><span>${number(b?.plan,1)} m² footprint</span></div></div><div class="study-chart" title="Relative older and newer footprint"><i style="width:${(a?.plan||0)/max*50}%"></i><b style="width:${(b?.plan||0)/max*50}%"></b></div><div class="study-card-footer"><span>${number(b?.reviewed||0)} newer areas reviewed</span><button data-open-study="${esc(p.id)}">Open study ${icon('arrow')}</button>${p.source==='mine'?`<button class="remove-study" data-remove-study="${esc(p.id)}" aria-label="Remove ${esc(p.title)} from library">Remove</button>`:''}</div></div></article>`;
     }).join(''):`<div class="empty-inventory"><h3>No studies match this view</h3><p>Change the search or source filter, or create your first comparison.</p></div>`;
     $('#all-studies-table').innerHTML=`<div class="table-scroll"><table><thead><tr><th>Study / dates</th><th>Older panels</th><th>Newer panels</th><th>Older footprint</th><th>Newer footprint</th><th>Older surface</th><th>Newer surface</th></tr></thead><tbody>${studies.map(p=>{const a=summary(p.images[0],projectSettings(p,state.settings)),b=summary(p.images[1],projectSettings(p,state.settings));return `<tr><td><strong>${esc(p.title)}</strong><small>${esc(p.images[0]?.date||'—')} → ${esc(p.images[1]?.date||'—')}</small></td><td>${displayCount(a)}</td><td>${displayCount(b)}</td><td>${number(a?.plan,1)} m²</td><td>${number(b?.plan,1)} m²</td><td>${number(a?.face,1)} m²</td><td>${number(b?.face,1)} m²</td></tr>`;}).join('')}</tbody></table></div>`;
     document.querySelectorAll('[data-open-study]').forEach(b=>b.onclick=async()=>{await loadDemo(b.dataset.openStudy);setTab('overview');});
+    document.querySelectorAll('[data-remove-study]').forEach(b=>b.onclick=()=>removeAddedPlaces([b.dataset.removeStudy]));
+    renderRemovedPlaces();
   }catch(e){$('#library-count').textContent='Data unavailable';$('#study-cards').textContent=e.message;}
 }
 $('#export-all').onclick=async()=>{
@@ -468,24 +496,75 @@ $('#clear-selection').onclick=()=>{state.areaSelection.clear();renderInventory()
 $('#apply-bulk').onclick=()=>{if(state.busy||!state.areaSelection.size)return;const im=state.images[state.active],action=$('#bulk-action').value,patch=action==='reviewed'?{reviewed:true}:action==='unreviewed'?{reviewed:false}:{excluded:action==='exclude'};editImage(`bulk ${action}`,im,{features:changeFeatures(im,[...state.areaSelection],patch)});};
 $('#dismiss-error').onclick=()=>error('');
 $('#retry-save').onclick=()=>saves.retry();
-$('#backup-library').onclick=async()=>{if(state.busy||state.loading.some(v=>v!==false))return toast('Finish the current photo operation first.');await save();const projects=state.projects.filter(p=>p.images.some(Boolean));if(!projects.length)return toast('No saved work to back up yet.');download(JSON.stringify({kind:'solar-lens-library',version:1,createdAt:new Date().toISOString(),projects}),'solar-lens-library-backup.json');toast(`${projects.length} saved studies backed up. Original high-resolution files are not embedded.`);};
+$('#backup-library').onclick=async()=>{if(state.busy||state.initializing||state.libraryBusy||state.loading.some(v=>v!==false))return toast('Finish the current photo operation first.');await save();const projects=state.projects.filter(p=>shouldStoreStudy(p)&&p.images.some(Boolean));if(!projects.length)return toast('No saved work to back up yet. Trial work can be exported as a project file.');download(JSON.stringify({kind:'solar-lens-library',version:1,createdAt:new Date().toISOString(),projects}),'solar-lens-library-backup.json');toast(`${projects.length} saved studies backed up. Trials, removed places and original high-resolution files are not embedded.`);};
 $('#restore-library').onclick=()=>{if(state.busy||state.loading.some(v=>v!==false))return toast('Finish the current photo operation first.');$('#library-file').click();};
 $('#library-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{
   if(file.size>80e6)throw new Error('Backup is too large (maximum 80 MB).');
   const data=JSON.parse(await file.text());if(state.busy||state.loading.some(v=>v!==false))throw new Error('Finish the current photo operation and restore the backup again.');
-  const before=state.projects.find(p=>p.id===state.projectId),merged=mergeLibrary(state.projects,data);state.projects=merged;
+  const approved={...data,projects:Array.isArray(data.projects)?data.projects.map(p=>({...p,saveMode:'saved'})):data.projects};
+  const before=state.projects.find(p=>p.id===state.projectId),merged=mergeLibrary(state.projects,approved);state.projects=merged;
   const active=merged.find(p=>p.id===state.projectId);if(active&&active!==before)restore(structuredClone(active));
-  await saves.enqueueAll(merged,serialize());renderStudies();toast(saves.pending?'Backup loaded for this session; storage failed. Export a backup or retry save.':`Backup restored: ${data.projects.length} records processed. Newer saved versions win for matching IDs.`);
+  await saves.enqueueAll(merged,state.saveMode==='saved'?serialize():null);
+  if(!saves.pending){await forgetRemoved(await database(),merged.map(p=>p.id));state.removed=state.removed.filter(r=>!merged.some(p=>p.id===r.id));}
+  renderStudies();toast(saves.pending?'Backup loaded for this session; storage failed. Export a backup or retry save.':`Backup restored: ${data.projects.length} records explicitly saved. Newer versions win for matching IDs.`);
 }catch(err){error(`Could not restore backup: ${err.message}`);}finally{e.target.value='';}};
 $('#library-retry').onclick=async()=>{error('');studyCache=null;await loadManifest();renderStudies();};
+function renderRemovedPlaces(){
+ const extras=state.projects.filter(p=>!isOriginalStudy(p));
+ $('#clean-added').hidden=!extras.length;$('#clean-added').disabled=state.libraryBusy||state.initializing||state.busy;
+ $('#library-scope-note').textContent=extras.length?`11 original places + ${extras.length} explicitly saved places. Trials are not included.`:'Only the original 11 places. Trials are not included.';
+ $('#removed-places').hidden=!state.removed.length;$('#removed-summary').textContent=`Removed places (${state.removed.length})`;
+ $('#removed-list').innerHTML=state.removed.map(r=>`<div class="removed-place"><span><strong>${esc(r.project.title||'Untitled study')}</strong><small>${esc(r.project.images.filter(Boolean).map(im=>im.name).join(' · '))}</small></span><button class="button small" data-restore-place="${esc(r.id)}" ${state.libraryBusy?'disabled':''}>Restore to library</button></div>`).join('');
+ document.querySelectorAll('[data-restore-place]').forEach(b=>b.onclick=()=>restoreRemovedPlace(b.dataset.restorePlace));
+}
+async function removeAddedPlaces(ids){
+ if(state.initializing||state.busy||state.libraryBusy||state.loading.some(v=>v!==false))return toast('Finish the current operation first.');
+ const projects=state.projects.filter(p=>ids.includes(p.id)&&!isOriginalStudy(p));if(!projects.length)return;
+ state.libraryBusy=true;renderMetrics();renderRemovedPlaces();
+ try{
+  await saves.retry();saves.discard(projects.map(p=>p.id));
+  const removed=await archiveRecords(await database(),projects),removedIds=new Set(removed.map(r=>r.id));
+  state.projects=state.projects.filter(p=>!removedIds.has(p.id));
+  const byId=new Map(state.removed.map(r=>[r.id,r]));for(const r of removed)byId.set(r.id,r);state.removed=[...byId.values()];
+  if(removedIds.has(state.projectId))state.saveMode='trial';
+  toast(`${removed.length} added places removed. The original 11 places are unchanged. Recover them under Removed places.`);
+ }catch(e){error(`Could not remove places: ${e.message}`);}
+ finally{state.libraryBusy=false;renderMetrics();renderStudies();}
+}
+async function restoreRemovedPlace(id){
+ if(state.initializing||state.busy||state.libraryBusy)return;
+ const record=state.removed.find(r=>r.id===id);if(!record)return;
+ state.libraryBusy=true;renderMetrics();renderRemovedPlaces();
+ try{
+  const project={...record.project,saveMode:'saved',updatedAt:new Date().toISOString()};validateProject(project);
+  await restoreRecord(await database(),project);state.projects=[...state.projects.filter(p=>p.id!==id),project];state.removed=state.removed.filter(r=>r.id!==id);
+  toast('Place restored to the saved library.');
+ }catch(e){error(`Could not restore place: ${e.message}`);}
+ finally{state.libraryBusy=false;renderMetrics();renderStudies();}
+}
+$('#clean-added').onclick=()=>removeAddedPlaces(state.projects.filter(p=>!isOriginalStudy(p)).map(p=>p.id));
 async function loadManifest(){
  try{const response=await fetch(new URL('demo/manifest.json',document.baseURI));if(!response.ok)throw new Error();const data=await response.json();state.manifest=data.pairs||[];const chosen=$('#site-select').value;$('#site-select').innerHTML=`<option value="">Choose a supplied study</option>${state.manifest.map(p=>`<option value="${esc(p.id)}">${esc(p.title)} · ${p.olderYear}–${p.newerYear}</option>`).join('')}`;$('#site-select').value=chosen;if(state.tab==='studies')renderStudies();}
  catch{$('#site-select').innerHTML='<option value="">Study list unavailable</option>';error('Supplied studies could not load. Check your connection or upload your own photographs.');}
 }
 async function initialize(){
  const epoch=workspaceEpoch;render();let current;
- const storage=async()=>{try{const db=await database();const read=store=>new Promise((resolve,reject)=>{const r=store==='saved'?db.transaction(store).objectStore(store).getAll():db.transaction(store).objectStore(store).get('current');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});const values=await Promise.all([read('projects'),read('saved')]);current=values[0];const records=new Map((values[1]||[]).filter(p=>{try{validateProject(p);return true;}catch{return false;}}).map(p=>[p.id,p]));for(const p of state.projects)records.set(p.id,p);state.projects=[...records.values()];}catch{/* Exports remain available when storage is disabled. */}};
- await Promise.all([loadManifest(),storage()]);if(state.tab==='studies')renderStudies();if(epoch!==workspaceEpoch)return;
+ const storage=async()=>{
+  try{
+   const db=await database();
+   const [previous,saved,removed]=await Promise.all([readRecords(db,'projects','current'),readRecords(db,'saved'),readRecords(db,'removed')]);
+   const valid=p=>{try{validateProject(p);return true;}catch{return false;}};
+   const cleanup=planLibraryCleanup((saved||[]).filter(valid),previous&&valid(previous)?previous:null);
+   state.removed=(removed||[]).filter(r=>valid(r.project));
+   state.projects=cleanup.kept;current=cleanup.current;
+   if(cleanup.removed.length){
+    const additions=await archiveRecords(db,cleanup.removed);
+    const byId=new Map(state.removed.map(r=>[r.id,r]));for(const r of additions)byId.set(r.id,r);state.removed=[...byId.values()];
+    toast(`${additions.length} old added places removed from the library. The original 11 places remain. Recover them under Removed places if needed.`);
+   }
+  }catch(e){error(`Local library could not be prepared: ${e.message}. You can still run trials and export project files.`);}
+ };
+ await Promise.all([loadManifest(),storage()]);state.initializing=false;render();if(state.tab==='studies')renderStudies();if(epoch!==workspaceEpoch)return;
  if(current){try{restore(current);if(current.images.some(Boolean)&&!state.projects.some(p=>p.id===state.projectId))state.projects.push(serialize());return;}catch{error('The last project could not be restored. Other saved studies remain in the library.');}}
  const first=state.manifest.find(p=>p.id==='haeco')||state.manifest[0];if(first){$('#site-select').value=first.id;await loadDemo(first.id);}
 }
