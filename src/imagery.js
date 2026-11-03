@@ -17,7 +17,9 @@ function crsDefinition(code) {
   if (code >= 32701 && code <= 32760) proj4.defs(`EPSG:${code}`, `+proj=utm +zone=${code - 32700} +south +datum=WGS84 +units=m +no_defs`);
   return `EPSG:${code}`;
 }
-export async function openImage(file) {
+export async function openImage(file, { onProgress = () => {} } = {}) {
+  onProgress(.02);
+  let previewing = true;
   const isTiff = /\.tiff?$/i.test(file.name) || file.type.includes('tiff');
   let read, meta;
   if (isTiff) {
@@ -36,7 +38,7 @@ export async function openImage(file) {
     read = async (window, width, height) => {
       const c = canvas(width, height), ctx = c.getContext('2d');
       const bands = rasterBands(window, width, height);
-      for (const band of bands) {
+      for (const [index, band] of bands.entries()) {
         const rgb = await im.readRGB({ window: band.window, width: band.width, height: band.height, resampleMethod: 'bilinear', interleave: true });
         // readRGB can return RGBA on some TIFF versions; select RGB explicitly.
         const channels = rgb.length / (band.width * band.height);
@@ -47,6 +49,7 @@ export async function openImage(file) {
           ctx.putImageData(new ImageData(rgba, band.width, band.height), 0, band.y);
         }
         if (bands.length > 1) await new Promise(resolve => setTimeout(resolve, 0));
+        if (previewing) onProgress(.1 + .88 * (index + 1) / bands.length);
       }
       return c;
     };
@@ -59,5 +62,6 @@ export async function openImage(file) {
   }
   const width = Math.min(1400, meta.width), height = Math.max(1, Math.round(meta.height * width / meta.width));
   const preview = await read([0, 0, meta.width, meta.height], width, height);
-  return { name: file.name, date: (file.name.match(/(?:19|20)\d{2}/) || [''])[0], meta, read, preview: preview.toDataURL('image/jpeg', .88), features: [], analyzed: false };
+  previewing = false; onProgress(1);
+  return { name: file.name, sizeBytes: file.size, date: (file.name.match(/(?:19|20)\d{2}/) || [''])[0], meta, read, preview: preview.toDataURL('image/jpeg', .88), features: [], analyzed: false };
 }

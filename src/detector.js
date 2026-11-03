@@ -2,7 +2,7 @@ import clipping from 'polygon-clipping';
 import { canvas } from './imagery.js';
 import { polygonArea, pixelAreaM2 } from './geometry.js';
 
-let worker, ready, nextId = 0;
+let worker, ready, nextId = 0, generation = 0;
 const pending = new Map();
 function call(message, transfer = []) {
   if (!worker) {
@@ -13,14 +13,18 @@ function call(message, transfer = []) {
   return new Promise((resolve, reject) => { const id = ++nextId; pending.set(id, { resolve, reject }); worker.postMessage({ ...message, id }, transfer); });
 }
 export function cancelDetection() {
+  generation++;
   if (worker) worker.terminate(); worker = null; ready = null;
   for (const p of pending.values()) p.reject(new Error('Detection cancelled.')); pending.clear();
 }
 export async function detect(image, options, onProgress) {
+  const runGeneration = generation;
+  const checkCancelled = () => { if (generation !== runGeneration) throw new Error('Detection cancelled.'); };
   if (!image.meta.original || !image.read) throw new Error('Re-upload the original photograph to run detection on a saved project.');
   onProgress(0, 'Loading solar detector…');
   if (!ready) ready = call({ type: 'load', base: new URL(import.meta.env.BASE_URL, location.href).href }).catch(e => { ready = null; throw e; });
   await ready;
+  checkCancelled();
   const { width, height } = image.meta;
   const areaFactor = pixelAreaM2(image.meta);
   const nativeGsd = areaFactor ? Math.sqrt(areaFactor) : null;
@@ -31,11 +35,13 @@ export async function detect(image, options, onProgress) {
   const polys = [], scores = [];
   let done = 0;
   for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) {
+    checkCancelled();
     const corex = cx * stride, corey = cy * stride;
     const x0 = Math.max(0, corex - margin), y0 = Math.max(0, corey - margin);
     const x1 = Math.min(width, x0 + 640 * scale), y1 = Math.min(height, y0 + 640 * scale);
     const w = Math.min(640, Math.max(1, Math.round((x1 - x0) / scale))), h = Math.min(640, Math.max(1, Math.round((y1 - y0) / scale)));
     const tile = await image.read([x0, y0, x1, y1], w, h);
+    checkCancelled();
     const padded = canvas(640, 640), ctx = padded.getContext('2d');
     ctx.fillStyle = 'rgb(114,114,114)'; ctx.fillRect(0, 0, 640, 640); ctx.drawImage(tile, 0, 0);
     const pixels = ctx.getImageData(0, 0, 640, 640).data.buffer;
@@ -52,6 +58,7 @@ export async function detect(image, options, onProgress) {
     await new Promise(resolve => setTimeout(resolve, 0));
   }
   onProgress(.99, 'Merging tile boundaries and removing overlaps…');
+  checkCancelled();
   let merged = [];
   // Bound the number of arguments and the size of each union operation.
   for (let i = 0; i < polys.length; i += 150) merged = clipping.union(merged, ...polys.slice(i, i + 150));

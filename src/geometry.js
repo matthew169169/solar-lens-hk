@@ -1,6 +1,7 @@
 import proj4 from 'proj4';
 
 proj4.defs('EPSG:2326', '+proj=tmerc +lat_0=22.3121333333333 +lon_0=114.178555555556 +k=1 +x_0=836694.05 +y_0=819069.8 +ellps=intl +towgs84=-162.619,-276.959,-161.764,0.067753,-2.243649,-1.158827,-1.094246 +units=m +no_defs');
+const coordinateTransforms = new Map();
 
 export function ringArea(ring) {
   let a = 0;
@@ -28,7 +29,14 @@ export function pixelToWorld(meta, point) {
 export function location(meta, point) {
   const p = pixelToWorld(meta, point);
   if (!p || !meta.crs) return null;
-  try { return proj4(meta.crs, 'EPSG:4326', p); } catch { return null; }
+  // Project files carry the EPSG code, so recreate UTM definitions after reload.
+  const utm = /^EPSG:(326|327)(\d{2})$/.exec(meta.crs);
+  if (utm && +utm[2] >= 1 && +utm[2] <= 60 && !proj4.defs(meta.crs)) proj4.defs(meta.crs, `+proj=utm +zone=${+utm[2]} ${utm[1] === '327' ? '+south' : ''} +datum=WGS84 +units=m +no_defs`);
+  try {
+    if (!coordinateTransforms.has(meta.crs)) coordinateTransforms.set(meta.crs, proj4(meta.crs, 'EPSG:4326'));
+    const result = coordinateTransforms.get(meta.crs).forward(p);
+    return result.every(Number.isFinite) ? result : null;
+  } catch { return null; }
 }
 export function pixelAreaM2(meta) {
   if (!meta.affine || !meta.metric) return null;
@@ -40,12 +48,13 @@ export function measure(feature, meta, settings) {
   const position = location(meta, centroid(feature.rings));
   const mercatorCorrection = meta.crs === 'EPSG:3857' && position ? Math.cos(position[1] * Math.PI / 180) ** 2 : 1;
   const plan = factor == null ? null : polygonArea(feature.rings) * factor * mercatorCorrection;
-  const tilt = settings.tilt === '' || settings.tilt == null ? null : Number(settings.tilt);
+  const tiltValue = feature.tilt ?? settings.tilt;
+  const tilt = tiltValue === '' || tiltValue == null ? null : Number(tiltValue);
   const face = plan == null || tilt == null ? null : plan / Math.cos(tilt * Math.PI / 180);
   const known = Number.isInteger(feature.count) && feature.count >= 0;
-  const moduleArea = Number(settings.moduleArea);
+  const moduleArea = Number(feature.moduleArea ?? settings.moduleArea);
   const estimate = face != null && moduleArea > 0 ? Math.max(0, Math.round(face / moduleArea)) : null;
-  return { plan, face, count: known ? feature.count : estimate, estimated: !known, position };
+  return { plan, face, count: known ? feature.count : estimate, estimated: !known, position, tilt, moduleArea };
 }
 export function summary(image, settings) {
   if (!image || !image.analyzed) return null;
@@ -56,7 +65,7 @@ export function summary(image, settings) {
     count: measured.some(m => m.count == null) ? null : measured.reduce((s, m) => s + m.count, 0),
     estimated: measured.some(m => m.estimated),
     plan: pixelAreaM2(image.meta) == null ? null : measured.reduce((s, m) => s + m.plan, 0),
-    face: pixelAreaM2(image.meta) == null || settings.tilt === '' ? null : measured.reduce((s, m) => s + m.face, 0),
+    face: pixelAreaM2(image.meta) == null || measured.some(m => m.face == null) || (!measured.length && settings.tilt === '') ? null : measured.reduce((s, m) => s + m.face, 0),
     reviewed: active.filter(f => f.reviewed).length,
   };
 }
@@ -88,8 +97,8 @@ export function geojson(images, settings) {
         id: f.id, period: index % 2 ? 'newer' : 'older', image: image.name, date: image.date,
         count: m.count, count_method: m.estimated ? 'area-based estimate' : 'manual count',
         plan_area_m2: m.plan, face_area_m2: m.face,
-        assumed_tilt_deg: settings.tilt === '' ? null : Number(settings.tilt), module_face_area_m2: Number(settings.moduleArea),
-        reviewed: f.reviewed, confidence: f.score ?? null, method: f.method || 'AI segmentation',
+        assumed_tilt_deg: m.tilt, module_face_area_m2: m.moduleArea,
+        reviewed: f.reviewed, review_note: f.note || '', confidence: f.score ?? null, method: f.method || 'AI segmentation',
       } });
     });
   });
