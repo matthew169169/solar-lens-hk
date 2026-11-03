@@ -32,20 +32,24 @@ npm run dev
 - Manual count overrides, per-area tilt/module dimensions and review notes, candidate exclusion/restoration, missed-area tracing and review status.
 - Net plan-view area, tilt-adjusted panel-face area, and individually labelled area-based module-count estimates.
 - Hong Kong 1980 Grid (EPSG:2326), EPSG:3857, EPSG:4326 and WGS84 UTM coordinates; location export to WGS84. Geographic degrees are never interpreted as square metres. Web Mercator area uses a local latitude scale correction.
-- CSV, GeoJSON and whole-project JSON exports. Project previews/results autosave in local IndexedDB. Project files do not include original high-resolution photographs; reattach originals to rerun detection.
-- Real, unreviewed demo results for all 11 supplied place pairs, with reduced previews. A “Try a real sample” action runs the browser model on two actual HAECO roof crops.
+- CSV, GeoJSON and whole-project JSON exports. Project previews/results autosave in local IndexedDB. Project files do not include original high-resolution photographs; saved previews can be rescanned at their available resolution; reattach originals for full detail.
+- Real, unreviewed demo results for all 11 supplied place pairs, with reduced previews. An optional **How it works → Load HAECO example** action opens a separate example study and scans two actual HAECO roof crops. It is separate from the current-photo scan button.
 - Responsive comparison, searchable data library, current/all-library maps and methodology views, with linked photo navigation and paginated inventories.
+
+## Current-photo detection (version 2.1)
+
+Detection processes the selected photograph. Its filename is shown beside **Results for**, in the target selector and in progress messages. Neither single-photo scans nor paired scans substitute HAECO or another site. Only the explicitly labelled example loader changes to the example study. Results are committed against captured image identities, so stale results cannot overwrite a replacement image.
 
 ## Using the redesigned workspace
 
-1. Click **New comparison**, name the study, and drop an older and newer photograph into the two photo cards. Dates can be edited independently. Reading progress appears on each card.
+1. Click **New study**, name the study, and upload one current photograph, or an older/newer pair, into the photo cards. **Auto-detect new uploads** runs the model on each newly imported photo; turn it off when you want to calibrate before scanning or preserve reviews while reattaching originals. Dates can be edited independently. Reading progress appears on each card.
 2. GeoTIFF scale and coordinates are read automatically. For ordinary photos, choose **Set scale & location**. Known pixel spacing enables areas; a Hong Kong grid or latitude/longitude anchor also enables locations. Manual calibration assumes a north-up orthophoto.
-3. Set study tilt, physical module area, confidence and working resolution. Click **Run detection**. You can cancel a run while retaining the previous results. **Try a real sample** loads two original TIFF crops and runs the same browser model.
+3. Set study tilt, physical module area, confidence and working resolution. Select the exact filename in **Scan target**, then click **Detect current photo**. The default scope scans only that selected photo; **Both loaded photos** scans the pair. The images and active selection stay fixed during scanning. You can cancel while retaining previous results. The HAECO example is available separately under **How it works** and is never used as a fallback for user-photo detection.
 4. Open **Review** on a candidate for a close-up. Enter a physical module count, optional per-area tilt/module dimensions, and a note. Exclude false positives or trace missed areas. Search, sort and paginate the inventory.
 5. **Data library** contains all 11 supplied pairs plus saved personal comparisons. Search by place/date/filename, filter supplied or uploaded studies, and reopen edited projects. Saved projects retain their measurement assumptions. Library totals can include overlapping studies and are not a territory-wide inventory.
 6. **Panel locations** shows either the current comparison or all library outlines, with older/newer/both date controls. Export measurement CSV, WGS84 GeoJSON, a reopenable project JSON, or filtered library summaries/outlines.
 
-Personal projects autosave in this browser on this device. Export a project JSON to back up or transfer it. Original high-resolution files are not stored in project exports or uploaded to a server; reattach the same filename and dimensions to regain native detail and detection while preserving reviews. Saved previews are suitable for navigation; use the original imagery for counting modules.
+Personal projects autosave in this browser on this device. Export a project JSON to back up or transfer it. Original high-resolution files are not stored in project exports or uploaded to a server; reattach the same filename and dimensions to regain native detail. Saved previews can also be scanned, with the result explicitly labelled **reduced preview** and a working resolution no finer than the preview source. Turn off automatic upload detection before reattaching an original if you need to preserve existing review values. Use original imagery for counting physical modules.
 
 ## Measurement meaning
 

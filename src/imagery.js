@@ -1,6 +1,7 @@
 import { fromBlob } from 'geotiff';
 import proj4 from 'proj4';
 import { rasterBands } from './raster-bands.js';
+import { previewWindow } from './scan-plan.js';
 
 export function canvas(width, height) {
   const c = document.createElement('canvas'); c.width = width; c.height = height; return c;
@@ -64,4 +65,13 @@ export async function openImage(file, { onProgress = () => {} } = {}) {
   const preview = await read([0, 0, meta.width, meta.height], width, height);
   previewing = false; onProgress(1);
   return { name: file.name, sizeBytes: file.size, date: (file.name.match(/(?:19|20)\d{2}/) || [''])[0], meta, read, preview: preview.toDataURL('image/jpeg', .88), features: [], analyzed: false };
+}
+
+export async function prepareDetectionImage(image) {
+  if (image.read) return { ...image, sourceScale: 1, detectionSource: 'original photograph' };
+  // Saved studies remain scannable without substituting any other photograph.
+  const response = await fetch(new URL(image.preview, document.baseURI));
+  if (!response.ok) throw new Error('The current photo preview could not load. Reattach its original file.');
+  const preview = await openImage(new File([await response.blob()], 'preview.jpg', { type: 'image/jpeg' }));
+  return { ...image, sourceScale: Math.max(image.meta.width / preview.meta.width, image.meta.height / preview.meta.height, 1), detectionSource: 'reduced preview', read: (window, width, height) => preview.read(previewWindow(window, image.meta, preview.meta), width, height) };
 }
