@@ -12,6 +12,10 @@ The publishing branch contains application source and approved study assets, plu
 
 Pages from a private repository requires an eligible GitHub plan. If it is unavailable, deploy to a separate public web repository while keeping the original source/research repository private. To target another existing repository, use `node scripts/deploy-github-pages.mjs owner/repository` after `npm run build`.
 
+## Presentation
+
+The [20-slide project and function guide](docs/presentations/Solar-Lens-HK-Project-and-Functions.pptx) explains the complete workflow, current-photo scan controls, measurements, architecture, all 11 study results and limitations. It includes presenter notes and editable result tables/charts.
+
 ## Run
 
 Requires Node.js 22 or newer.
