@@ -29,12 +29,23 @@ npm run dev
 - Tiled, real YOLOv8s solar segmentation in a Web Worker through ONNX Runtime Web (WASM, one thread, no cross-origin-isolation requirement).
 - Non-overlapping tile-core ownership and polygon union avoid double-counting overlapping mask area. Interior holes are preserved.
 - Separate older/newer images, editable dates, coverage checks, zoom/pan, native-detail decoding for original uploads, and clickable outlines.
-- Manual count overrides, candidate exclusion/restoration, missed-area tracing and review status.
+- Manual count overrides, per-area tilt/module dimensions and review notes, candidate exclusion/restoration, missed-area tracing and review status.
 - Net plan-view area, tilt-adjusted panel-face area, and individually labelled area-based module-count estimates.
 - Hong Kong 1980 Grid (EPSG:2326), EPSG:3857, EPSG:4326 and WGS84 UTM coordinates; location export to WGS84. Geographic degrees are never interpreted as square metres. Web Mercator area uses a local latitude scale correction.
 - CSV, GeoJSON and whole-project JSON exports. Project previews/results autosave in local IndexedDB. Project files do not include original high-resolution photographs; reattach originals to rerun detection.
-- Real, unreviewed demo results for all 11 supplied place pairs, with reduced previews. A “Try live detection” action runs the browser model on two actual HAECO roof crops.
-- Responsive comparison, map and methodology views.
+- Real, unreviewed demo results for all 11 supplied place pairs, with reduced previews. A “Try a real sample” action runs the browser model on two actual HAECO roof crops.
+- Responsive comparison, searchable data library, current/all-library maps and methodology views, with linked photo navigation and paginated inventories.
+
+## Using the redesigned workspace
+
+1. Click **New comparison**, name the study, and drop an older and newer photograph into the two photo cards. Dates can be edited independently. Reading progress appears on each card.
+2. GeoTIFF scale and coordinates are read automatically. For ordinary photos, choose **Set scale & location**. Known pixel spacing enables areas; a Hong Kong grid or latitude/longitude anchor also enables locations. Manual calibration assumes a north-up orthophoto.
+3. Set study tilt, physical module area, confidence and working resolution. Click **Run detection**. You can cancel a run while retaining the previous results. **Try a real sample** loads two original TIFF crops and runs the same browser model.
+4. Open **Review** on a candidate for a close-up. Enter a physical module count, optional per-area tilt/module dimensions, and a note. Exclude false positives or trace missed areas. Search, sort and paginate the inventory.
+5. **Data library** contains all 11 supplied pairs plus saved personal comparisons. Search by place/date/filename, filter supplied or uploaded studies, and reopen edited projects. Saved projects retain their measurement assumptions. Library totals can include overlapping studies and are not a territory-wide inventory.
+6. **Panel locations** shows either the current comparison or all library outlines, with older/newer/both date controls. Export measurement CSV, WGS84 GeoJSON, a reopenable project JSON, or filtered library summaries/outlines.
+
+Personal projects autosave in this browser on this device. Export a project JSON to back up or transfer it. Original high-resolution files are not stored in project exports or uploaded to a server; reattach the same filename and dimensions to regain native detail and detection while preserving reviews. Saved previews are suitable for navigation; use the original imagery for counting modules.
 
 ## Measurement meaning
 
