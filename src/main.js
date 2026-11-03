@@ -5,7 +5,8 @@ import { projectSettings, libraryGeojson } from './library.js';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import clipping from 'polygon-clipping';
-import { openImage } from './imagery.js';
+import { planScan, commitScan } from './scan-plan.js';
+import { openImage, prepareDetectionImage } from './imagery.js';
 import { detect, cancelDetection } from './detector.js';
 import { summary, measure, centroid, polygonArea, geojson, compareCoverage, csvCell, pixelAreaM2, location } from './geometry.js';
 
@@ -39,7 +40,7 @@ root.innerHTML = layout(icon);
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
 function error(message) { $('#error').textContent = message; $('#error').hidden = !message; }
 function serialize() {
-  return { version: 1, id: state.projectId, title: state.title, datasetId: state.datasetId || null, updatedAt: new Date().toISOString(), settings: { ...state.settings }, images: state.images.map(im => im ? { name: im.name, sizeBytes: im.sizeBytes, date: im.date, meta: { ...im.meta, original: false }, preview: im.preview, features: structuredClone(im.features), analyzed: im.analyzed, run: im.run } : null) };
+  return { version: 1, id: state.projectId, active: state.active, autoDetect: $('#auto-detect').checked, title: state.title, datasetId: state.datasetId || null, updatedAt: new Date().toISOString(), settings: { ...state.settings }, images: state.images.map(im => im ? { name: im.name, sizeBytes: im.sizeBytes, date: im.date, meta: { ...im.meta, original: false }, preview: im.preview, features: structuredClone(im.features), analyzed: im.analyzed, run: im.run } : null) };
 }
 async function database() {
   return new Promise((resolve, reject) => { const req = indexedDB.open('solar-lens-hk', 2); req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains('projects')) req.result.createObjectStore('projects'); if (!req.result.objectStoreNames.contains('saved')) req.result.createObjectStore('saved', { keyPath: 'id' }); }; req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
@@ -72,7 +73,8 @@ function validateProject(data) {
 function resetReviewFilters() { state.filter='all';state.areaSearch='';state.page=0;$('#review-filter').value='all';$('#area-search').value=''; }
 function restore(data) {
   resetReviewFilters();
-  validateProject(data); state.images = data.images; state.projectId = data.id || crypto.randomUUID(); state.datasetId = data.datasetId || null; state.page = 0; state.title = String(data.title || 'Solar comparison');
+  if(typeof data.autoDetect==='boolean')$('#auto-detect').checked=data.autoDetect;
+  validateProject(data); state.images = data.images; state.active = (data.active === 0 || data.active === 1) && data.images[data.active] ? data.active : data.images[1] ? 1 : 0; state.projectId = data.id || crypto.randomUUID(); state.datasetId = data.datasetId || null; state.page = 0; state.title = String(data.title || 'Solar comparison');
   if (data.settings) {
     const s = data.settings;
     state.settings = { tilt: s.tilt === '' ? '' : String(Math.min(80, Math.max(0, Number(s.tilt) || 0))), moduleArea: String(Math.min(20, Math.max(.1, Number(s.moduleArea) || 2.2))), threshold: String(Math.min(.95, Math.max(.1, Number(s.threshold) || .35))), gsd: ['.06', '.10', '.15'].includes(s.gsd) ? s.gsd : '.10' };
@@ -84,21 +86,29 @@ function download(data, name, type = 'application/json') { const url = URL.creat
 function displayCount(s) { return !s ? '—' : `${s.estimated && s.count != null ? '≈ ' : ''}${number(s.count)}`; }
 function delta(a, b, digits = 0) { if (a == null || b == null) return 'Awaiting both results'; const v = b - a; return `${v >= 0 ? '+' : '−'}${number(Math.abs(v), digits)} since older photo`; }
 function renderMetrics() {
-  const old = summary(state.images[0], state.settings), now = summary(state.images[1], state.settings);
+  const older = summary(state.images[0], state.settings), newer = summary(state.images[1], state.settings);
+  const now = state.active === 0 ? older : newer, old = state.active === 0 ? newer : older;
+  const other = state.active === 0 ? 'Newer' : 'Older', current = state.images[state.active];
   const coverage = compareCoverage(state.images[0]?.meta, state.images[1]?.meta);
-  const change = coverage.ok ? delta(old?.count, now?.count) : 'Match coverage to compare';
-  const areaChange = coverage.ok ? delta(old?.plan, now?.plan, 1) : 'Match coverage to compare';
+  const change = coverage.ok ? delta(older?.count, newer?.count) : 'Match coverage to compare';
+  const areaChange = coverage.ok ? delta(older?.plan, newer?.plan, 1) : 'Match coverage to compare';
   $('#metrics').innerHTML = `
-  <article class="metric-card"><div class="metric-top"><span>${now?.estimated === false && now?.arrays ? 'Counted panels' : 'Estimated panels'}</span>${icon('grid')}</div><div class="metric-value">${displayCount(now)}</div><div class="metric-compare"><span class="metric-change">${esc(change)}</span><span>Older: ${displayCount(old)}</span></div></article>
-  <article class="metric-card"><div class="metric-top"><span>Panel footprint</span>${icon('layers')}</div><div class="metric-value">${number(now?.plan, 1)} <small>m²</small></div><div class="metric-compare"><span class="metric-change">${esc(areaChange)}</span><span>Older: ${number(old?.plan, 1)} m²</span></div></article>
-  <article class="metric-card"><div class="metric-top"><span>Panel surface area</span>${icon('sun')}</div><div class="metric-value">${number(now?.face, 1)} <small>m²</small></div><div class="metric-compare"><span>${state.settings.tilt === '' ? 'Tilt needed to calculate' : `Study tilt: ${esc(state.settings.tilt)}° · area overrides apply`}</span><span>Older: ${number(old?.face, 1)} m²</span></div></article>
-  <article class="metric-card dark"><div class="metric-top"><span>Solar areas mapped</span>${icon('pin')}</div><div class="metric-value">${number(now?.arrays)}</div><div class="metric-compare"><span><i class="live-dot"></i> ${number(now?.reviewed || 0)} reviewed</span><span>Newer photo</span></div></article>`;
+  <article class="metric-card"><div class="metric-top"><span>${now?.estimated === false && now?.arrays ? 'Counted panels' : 'Estimated panels'}</span>${icon('grid')}</div><div class="metric-value">${displayCount(now)}</div><div class="metric-compare"><span class="metric-change">${esc(change)}</span><span>${other}: ${displayCount(old)}</span></div></article>
+  <article class="metric-card"><div class="metric-top"><span>Panel footprint</span>${icon('layers')}</div><div class="metric-value">${number(now?.plan, 1)} <small>m²</small></div><div class="metric-compare"><span class="metric-change">${esc(areaChange)}</span><span>${other}: ${number(old?.plan, 1)} m²</span></div></article>
+  <article class="metric-card"><div class="metric-top"><span>Panel surface area</span>${icon('sun')}</div><div class="metric-value">${number(now?.face, 1)} <small>m²</small></div><div class="metric-compare"><span>${state.settings.tilt === '' ? 'Tilt needed to calculate' : `Study tilt: ${esc(state.settings.tilt)}° · area overrides apply`}</span><span>${other}: ${number(old?.face, 1)} m²</span></div></article>
+  <article class="metric-card dark"><div class="metric-top"><span>Solar areas mapped</span>${icon('pin')}</div><div class="metric-value">${number(now?.arrays)}</div><div class="metric-compare"><span><i class="live-dot"></i> ${number(now?.reviewed || 0)} reviewed</span><span>${state.images.filter(Boolean).length===1?'Current':state.active === 0 ? 'Older' : 'Newer'} photo</span></div></article>`;
   $('#workspace-status').textContent = state.busy ? 'DETECTION RUNNING' : state.images.some(i => i?.analyzed) ? 'AI CANDIDATES · REVIEW REQUIRED' : 'READY FOR YOUR PHOTOS';
   $('#sync-views').disabled = !coverage.ok;
-  $('#coverage-note').textContent = coverage.message;
+  $('#coverage-note').textContent = state.images.filter(Boolean).length === 1 ? 'One photo loaded. Scan it directly; add another date to compare change.' : coverage.message;
   $('#coverage-note').classList.toggle('coverage-warning', !coverage.ok && state.images.every(Boolean));
   const active = state.images.filter(Boolean);
-  $('#study-meta').textContent = active.length ? `${active.map(i => i.date || 'Undated').join(' → ')}  ·  ${active.length} photograph${active.length > 1 ? 's' : ''}` : 'Load two photographs to begin';
+  $('#study-meta').textContent = active.length ? `${active.map(i => i.date || 'Undated').join(' → ')}  ·  ${active.length} photograph${active.length > 1 ? 's' : ''}` : 'Load one photograph to scan, or two to compare';
+  $('#scan-target').innerHTML = state.images.some(Boolean) ? state.images.map((im,i)=>im?`<option value="${i}" ${state.active===i?'selected':''}>${i?'Newer':'Older'} · ${esc(im.name)}</option>`:'').join('') : '<option value="">Upload a photo first</option>';
+  $('#scan-target').disabled = state.busy || !state.images.some(Boolean);
+  $('#scan-scope').disabled = state.busy;
+  $('#run-detection').textContent = $('#scan-scope').value === 'both' ? 'Detect both loaded photos' : 'Detect current photo';
+  $('#results-for').textContent = current ? `Results for: ${current.name}` : 'No current photo selected';
+  $('#scan-source').textContent = current ? current.read ? 'Original attached · scans this photo locally' : 'Saved preview · scans this photo at preview resolution. Reattach the original for full detail.' : 'Your uploaded photo stays selected during detection.';
   $('#assumptions').innerHTML = `${icon('info')}<span>${state.settings.tilt === '' ? 'Tilt unknown: face area and estimated panel counts are unavailable.' : `Counts marked ≈ use an assumed ${esc(state.settings.tilt)}° tilt and ${esc(state.settings.moduleArea)} m² per panel.`} AI outlines need review. Enter verified counts below to replace estimates.</span>`;
 }
 function drawPath(rings) { return rings.map(r => `M${r.map(p => p.map(n => Number(n.toFixed(2))).join(',')).join('L')}Z`).join(''); }
@@ -106,9 +116,9 @@ function viewBox(index) { const im = state.images[index]; return state.views[ind
 function renderImages() {
   $('#image-panels').innerHTML = state.images.map((im, index) => {
     const date = im?.date || '';
-    return `<article class="image-card" data-drop="${index}"><div class="image-heading"><span class="period-badge ${index ? 'newer' : ''}">${index ? 'NEWER' : 'OLDER'}</span><input aria-label="${index ? 'Newer' : 'Older'} photo date" class="date-input" data-date="${index}" value="${esc(date)}" placeholder="Photo date / year" /><label class="replace-button" title="${im ? 'Replace photograph' : 'Upload photograph'}">${icon('upload')} ${im ? 'Replace' : 'Upload'}<input type="file" data-upload="${index}" accept=".tif,.tiff,.jpg,.jpeg,.png,.webp" hidden ${state.busy ? 'disabled' : ''} /></label>${im ? `<button class="remove-image" data-remove="${index}" aria-label="Remove ${index ? 'newer' : 'older'} photograph">${icon('close')}</button>` : ''}</div>
+    return `<article class="image-card ${state.active===index?'scan-selected':''}" data-drop="${index}"><div class="image-heading"><span class="period-badge ${index ? 'newer' : ''}">${im && state.images.filter(Boolean).length===1 ? 'CURRENT' : index ? 'NEWER' : 'OLDER'}</span><input aria-label="${index ? 'Newer' : 'Older'} photo date" class="date-input" data-date="${index}" value="${esc(date)}" placeholder="Photo date / year" /><label class="replace-button" title="${im ? 'Replace photograph' : 'Upload photograph'}">${icon('upload')} ${im ? 'Replace' : 'Upload'}<input type="file" data-upload="${index}" accept=".tif,.tiff,.jpg,.jpeg,.png,.webp" hidden ${state.busy ? 'disabled' : ''} /></label>${im ? `<button class="remove-image" data-remove="${index}" aria-label="Remove ${index ? 'newer' : 'older'} photograph">${icon('close')}</button>` : ''}</div>
     <div class="image-stage ${state.tool === 'draw' && state.active === index ? 'drawing' : ''}" data-stage="${index}">${im ? `<svg data-svg="${index}" viewBox="${viewBox(index).join(' ')}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${index ? 'Newer' : 'Older'} aerial photograph with solar area outlines"><image href="${esc(im.preview)}" width="${im.meta.width}" height="${im.meta.height}"/><g data-detail="${index}"></g><g class="outlines" style="display:${state.overlay ? 'block' : 'none'}">${im.features.map(f => `<path data-feature="${esc(f.id)}" data-image="${index}" d="${drawPath(f.rings)}" class="solar-outline ${f.excluded ? 'excluded' : ''} ${f.reviewed ? 'reviewed' : ''} ${state.selected === f.id && state.active === index ? 'selected' : ''}" vector-effect="non-scaling-stroke"><title>${esc(f.id)}${f.excluded ? ' · excluded' : ''}</title></path>`).join('')}</g><polyline data-draft="${index}" fill="#e5b76533" stroke="#f2c67b" stroke-width="2" vector-effect="non-scaling-stroke" /></svg><span class="image-filename">${esc(im.name)}</span><div class="zoom-tools"><button data-zoom="${index},.65" aria-label="Zoom in ${index ? 'newer' : 'older'} photo">+</button><button data-zoom="${index},1.5" aria-label="Zoom out ${index ? 'newer' : 'older'} photo">−</button></div>` : `<label class="upload-zone">${icon('upload')}<strong>Add ${index ? 'newer' : 'older'} photograph</strong><span>GeoTIFF, JPG, PNG or WebP</span><small>Full-resolution files stay on your device</small><input type="file" data-upload="${index}" accept=".tif,.tiff,.jpg,.jpeg,.png,.webp" hidden /></label>`}</div>
-    ${state.loading[index] !== false ? `<div class="image-loading"><span class="spinner"></span><span data-loading="${index}">Reading photo · ${Math.round(state.loading[index]*100)}%</span></div>` : ''}<div class="image-footer"><span>${im ? `${number(im.meta.width)} × ${number(im.meta.height)} px` : 'GeoTIFF preserves scale & coordinates'}</span>${im ? `<button class="geo-status ${im.meta.affine && im.meta.crs ? 'valid' : 'missing'}" data-georef="${index}">${icon('pin')}${im.meta.affine && im.meta.crs ? esc(im.meta.georefSource || im.meta.crs) : pixelAreaM2(im.meta) ? 'Scale set · add location' : 'Set scale & location'}</button>` : '<span>Local processing</span>'}</div></article>`;
+    ${state.loading[index] !== false ? `<div class="image-loading"><span class="spinner"></span><span data-loading="${index}">Reading photo · ${Math.round(state.loading[index]*100)}%</span></div>` : ''}<div class="image-footer">${im ? `<button class="scan-photo" data-select-photo="${index}" aria-pressed="${state.active===index}">${state.active===index?'Current scan photo':'Select for scan'}</button>` : ''}<span>${im ? `${number(im.meta.width)} × ${number(im.meta.height)} px` : 'GeoTIFF preserves scale & coordinates'}</span>${im ? `<button class="geo-status ${im.meta.affine && im.meta.crs ? 'valid' : 'missing'}" data-georef="${index}">${icon('pin')}${im.meta.affine && im.meta.crs ? esc(im.meta.georefSource || im.meta.crs) : pixelAreaM2(im.meta) ? 'Scale set · add location' : 'Set scale & location'}</button>` : '<span>Local processing</span>'}</div></article>`;
   }).join('');
   bindImages();
 }
@@ -123,7 +133,7 @@ function renderInventory() {
   state.page = Math.max(0, Math.min(state.page, Math.ceil(filtered.length / 50)-1));
   $('#inventory-count').textContent = image?.analyzed ? `${filtered.length} areas · ${features.filter(f => f.reviewed && !f.excluded).length} reviewed` : 'Detection not run';
   $('#draw-area').classList.toggle('active', state.tool === 'draw');
-  if (!filtered.length) { $('#inventory').innerHTML = `<div class="empty-inventory">${icon('scan')}<h3>${image?.analyzed ? 'No areas in this view' : 'Your findings will appear here'}</h3><p>${image?.analyzed ? 'Check for missed panels and draw any visible solar areas manually.' : 'Upload both dates and run detection, or explore a supplied study.'}</p></div>`; return; }
+  if (!filtered.length) { $('#inventory').innerHTML = `<div class="empty-inventory">${icon('scan')}<h3>${image?.analyzed ? 'No areas in this view' : 'Your findings will appear here'}</h3><p>${image?.analyzed ? 'Check for missed panels and draw any visible solar areas manually.' : 'Upload a current photo and run detection, or explore a supplied study.'}</p></div>`; return; }
   $('#inventory').innerHTML = `<div class="table-scroll"><table><thead><tr><th>Solar area</th><th>Panels</th><th>Plan area</th><th>Face area</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody>${filtered.slice(state.page*50, (state.page+1)*50).map(f => {
     const m = measure(f, image.meta, state.settings);
     return `<tr data-row="${esc(f.id)}" class="${f.excluded ? 'row-excluded' : ''}"><td><span class="area-dot"></span><strong>${esc(f.id)}</strong><small>${f.method?.startsWith('Manual') ? 'Manually traced' : 'Solar region'}</small></td><td>${m.estimated && m.count != null ? '≈ ' : ''}${number(m.count)}</td><td>${number(m.plan, 1)} <small>m²</small></td><td>${number(m.face, 1)} <small>m²</small></td><td class="location-cell">${m.position ? `${m.position[1].toFixed(5)}° N<br>${m.position[0].toFixed(5)}° E` : 'Unlocated'}</td><td><span class="status-pill ${f.excluded ? 'excluded' : f.reviewed ? 'reviewed' : ''}">${f.excluded ? 'Excluded' : f.reviewed ? 'Reviewed' : 'Needs review'}</span></td><td><button class="review-button" data-review="${esc(f.id)}">Review ${icon('arrow')}</button></td></tr>`;
@@ -133,7 +143,7 @@ function renderInventory() {
 }
 function render() { renderMetrics(); renderImages(); renderInventory(); if (state.tab === 'map') renderMap(state.mapPeriod).catch(e=>error(e.message)); }
 function setTab(tab) {
-  const titles = { overview: ['Comparison','A clearer view of change.','Turn two photographs into a measurable picture of solar growth.'], studies:['Data library','Your whole study, connected.','All supplied photographs and your own comparisons, in one searchable place.'], map:['Panel locations','See the bigger picture.','Explore mapped outlines and their measurements across Hong Kong.'], method:['How it works','From photo to finding.','Understand the workflow and the assumptions behind every result.'] };
+  const titles = { overview: ['Comparison','A clearer view of change.','Scan your current photograph or compare two dates of the same place.'], studies:['Data library','Your whole study, connected.','All supplied photographs and your own comparisons, in one searchable place.'], map:['Panel locations','See the bigger picture.','Explore mapped outlines and their measurements across Hong Kong.'], method:['How it works','From photo to finding.','Understand the workflow and the assumptions behind every result.'] };
   const title=titles[tab]; $('#page-label').textContent=title[0]; $('#page-title').textContent=title[1]; $('#page-description').textContent=title[2]; $('.heading-actions').hidden=tab!=='overview';
   state.tab = tab; document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab)); for (const name of ['overview', 'studies', 'map', 'method']) $(`#${name}-page`).hidden = name !== tab; if (tab === 'map') setTimeout(()=>renderMap(state.mapPeriod).catch(e=>error(e.message)), 0); if (tab === 'studies') renderStudies(); }
 function svgPoint(svg, event) { const p = svg.createSVGPoint(); p.x = event.clientX; p.y = event.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return [q.x, q.y]; }
@@ -167,19 +177,20 @@ const uploadVersions = [0,0];
 async function loadUpload(file,index) {
   if (!file || state.busy) return;
   if(state.sampleLoading)return toast('Wait for the sample photos to load.');
-  studyVersion++; const token=++uploadVersions[index]; state.loading[index]=0; error('');renderImages();
+  let loadedImage=null;studyVersion++; const token=++uploadVersions[index]; state.loading[index]=0; error('');renderImages();
   try {
     const im=await openImage(file,{onProgress:p=>{if(token===uploadVersions[index]){state.loading[index]=p;const label=$(`[data-loading="${index}"]`);if(label)label.textContent=`Reading photo · ${Math.round(p*100)}%`;}}});
     if(token!==uploadVersions[index])return;
     const existing=state.images[index];
     const reattach=existing&&existing.name===im.name&&existing.meta.width===im.meta.width&&existing.meta.height===im.meta.height;
     if(reattach){im.features=existing.features;im.analyzed=existing.analyzed;im.run=existing.run;im.date=existing.date;if(!im.meta.affine&&existing.meta.affine)im.meta={...existing.meta,original:true};}
-    state.images[index]=im;state.views[index]=null;state.active=index;state.selected=null;state.page=0;
+    loadedImage=im;state.images[index]=im;state.views[index]=null;state.active=index;state.selected=null;state.page=0;
     toast(reattach?'Original reattached. Your review work is preserved.':'Photo ready. Check the date, scale and location, then run detection.');
   } catch(e){if(token===uploadVersions[index])error(`Could not read the photograph: ${e.message}`);}
-  finally{if(token===uploadVersions[index]){state.loading[index]=false;render();save();}}
+  finally{if(token===uploadVersions[index]){state.loading[index]=false;render();save();if(loadedImage && loadedImage===state.images[index] && $('#auto-detect').checked){autoScans.set(index,state.images[index]);drainAutoScans();}}}
 }
 function bindImages() {
+  document.querySelectorAll('[data-select-photo]').forEach(b=>b.onclick=()=>selectPhoto(Number(b.dataset.selectPhoto)));
   document.querySelectorAll('[data-upload]').forEach(input=>input.onchange=()=>loadUpload(input.files[0],Number(input.dataset.upload)));
   document.querySelectorAll('[data-drop]').forEach(card=>{
     card.ondragover=e=>{e.preventDefault();if(!state.busy)card.classList.add('drag-over');};card.ondragleave=()=>card.classList.remove('drag-over');
@@ -210,7 +221,7 @@ function focusFeature(index, feature) {
 }
 function review(id) {
   state.selected = id; const f = selectedFeature(); if (!f) return;
-  focusFeature(state.active, f); renderImages();
+  focusFeature(state.active, f);renderMetrics(); renderImages();
   const m = measure(f, state.images[state.active].meta, state.settings);
   $('#review-title').textContent = `${f.id} · ${state.active ? 'Newer' : 'Older'} photograph`;
   const v=viewBox(state.active), im=state.images[state.active];
@@ -256,28 +267,46 @@ async function renderMap(period = state.mapPeriod) {
   $('#map-note').textContent = `${selected.length} solar areas displayed. ${data.skipped_unlocated_ids.length ? `${data.skipped_unlocated_ids.length} unlocated areas omitted; set coordinates to include them.` : 'Map outlines inherit the photographs’ coordinate accuracy.'} Basemap tiles require internet.`;
   leaflet.invalidateSize();
 }
-async function runDetection() {
-  if (state.busy || state.loading.some(v=>v!==false)) return toast('Wait for your photographs to finish loading.');
-  const pending = state.images.map((im, index) => ({ im, index })).filter(({ im }) => im?.read && im.meta.original);
-  if (!pending.length) { toast('Upload original photographs to run detection. Supplied studies have saved AI results.'); return; }
-  state.busy = true; renderMetrics(); $('#run-detection').disabled = true; $('#new-study').disabled = true; $('#site-select').disabled = true; $('#progress').hidden = false; error('');
+const autoScans = new Map();
+let scanGeneration=0;
+async function drainAutoScans() {
+  if(state.busy || state.loading.some(v=>v!==false))return;
+  for(const [index,image] of autoScans){autoScans.delete(index);if(state.images[index]===image){await runDetection({index,scope:'current'});break;}}
+}
+function selectPhoto(index) {
+  if(state.busy || !state.images[index])return;
+  state.active=index;state.mapPeriod=String(index);resetReviewFilters();state.selected=null;render();save();
+}
+async function runDetection({index=state.active,scope=$('#scan-scope').value}={}) {
+  if (state.busy || state.loading.some(v=>v!==false)) return toast('Wait for the current photo operation to finish.');
+  let pending;try{pending=planScan(state.images,index,scope);}catch(e){return toast(e.message);}
+  const generation=++scanGeneration;state.busy=true;render();$('#run-detection').disabled=true;$('#new-study').disabled=true;$('#site-select').disabled=true;$('#progress').hidden=false;error('');
+  const projectId=state.projectId;
   try {
-    const results = [], options = { ...state.settings };
-    for (let i = 0; i < pending.length; i++) {
-      const { im, index } = pending[i];
-      const result = await detect(im, options, (p, text) => { $('#progress-value').value = (i + p) / pending.length; $('#progress-percent').textContent=Math.round((i+p)/pending.length*100)+'%'; $('#progress-text').textContent = text; });
-      results.push({ index, result });
+    const results=[],options={...state.settings};
+    for(let i=0;i<pending.length;i++){
+      const {image}=pending[i];
+      $('#progress-text').textContent=`Preparing current photo: ${image.name}`;
+      const source=await prepareDetectionImage(image);
+      if(generation!==scanGeneration)throw new Error('Detection cancelled.');
+      const result=await detect(source,options,(p,text)=>{$('#progress-value').value=(i+p)/pending.length;$('#progress-percent').textContent=Math.round((i+p)/pending.length*100)+'%';$('#progress-text').textContent=`${image.name} · ${text}`;});
+      results.push(result);
     }
-    for (const { index, result } of results) { const im = state.images[index]; im.features = result.features; im.run = result.run; im.analyzed = true; }
-    render(); save(); toast('Detection complete. Review outlines and inspect for missed panels.');
-  } catch (e) { error(e.message === 'Detection cancelled.' ? 'Detection cancelled. Previous results were preserved.' : `Detection could not finish: ${e.message}`); }
-  finally { state.busy = false; renderMetrics(); $('#run-detection').disabled = false; $('#new-study').disabled = false; $('#site-select').disabled = false; $('#progress').hidden = true; }
+    if(generation!==scanGeneration)throw new Error('Detection cancelled.');
+    if(projectId!==state.projectId)throw new Error('The study changed. Results were not applied.');
+    commitScan(state.images,pending,results);resetReviewFilters();render();save();
+    toast(`Detection complete for ${pending.map(p=>p.image.name).join(', ')}. ${results.some(r=>r.run.source==='reduced preview')?'Preview resolution used; reattach originals for more detail. ':''}Review the outlines.`);
+  }catch(e){error(e.message==='Detection cancelled.'?'Detection cancelled. Previous results were preserved.':`Detection could not finish: ${e.message}`);}
+  finally{state.busy=false;render();$('#run-detection').disabled=false;$('#new-study').disabled=false;$('#site-select').disabled=false;$('#progress').hidden=true;drainAutoScans();}
 }
 
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => $(`#${b.dataset.close}`).close());
 $('#study-title').onchange = e => { state.title = e.target.value.slice(0, 160); save(); };
-$('#run-detection').onclick = runDetection;
+$('#run-detection').onclick = ()=>runDetection();
+$('#scan-target').onchange=e=>selectPhoto(Number(e.target.value));
+$('#scan-scope').onchange=renderMetrics;
+$('#auto-detect').onchange=()=>{if(!$('#auto-detect').checked)autoScans.clear();save();};
 $('#live-sample').onclick = async () => {
   if (state.busy || state.loading.some(v=>v!==false)) return;
   state.sampleLoading=true;state.loading=[0,0];
@@ -290,15 +319,15 @@ $('#live-sample').onclick = async () => {
       return openImage(new File([await response.blob()], `HAECO-${year}-sample.tif`, { type: 'image/tiff' }));
     }));
     images[0].meta.georefSource = 'registered older crop · approximate';
-    resetReviewFilters();state.images = images; state.projectId=crypto.randomUUID();state.datasetId=null;state.title = 'HAECO · live detection sample'; state.views = [null, null]; state.selected = null; state.tool = 'select'; state.drawing = [];
-    state.sampleLoading=false;state.loading=[false,false];syncInputs(); setTab('overview'); render(); await runDetection();
+    resetReviewFilters();state.images = images; state.projectId=crypto.randomUUID();state.datasetId=null;state.title = 'HAECO · live detection sample';state.active=1;$('#site-select').value='';autoScans.clear(); state.views = [null, null]; state.selected = null; state.tool = 'select'; state.drawing = [];
+    state.sampleLoading=false;state.loading=[false,false];syncInputs(); setTab('overview'); render(); await runDetection({scope:'both'});
   } catch (e) { error(e.message); }
   finally { state.sampleLoading=false;state.loading=[false,false];button.disabled = false;render(); }
 };
-$('#cancel').onclick = cancelDetection;
+$('#cancel').onclick = ()=>{autoScans.clear();scanGeneration++;cancelDetection();};
 $('#overlay-toggle').onclick = () => { state.overlay = !state.overlay; renderImages(); };
 $('#fit-view').onclick = () => { state.views = [null, null]; renderImages(); };
-$('#period-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { state.active = Number(b.dataset.period); state.page=0; state.tool = 'select'; state.drawing = []; renderInventory(); renderImages(); });
+$('#period-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { if(state.busy)return;state.active = Number(b.dataset.period); state.mapPeriod=String(state.active);state.page=0; state.tool = 'select'; state.drawing = []; renderMetrics();renderInventory(); renderImages();save(); });
 $('#map-period').querySelectorAll('button').forEach(b => b.onclick = () => { $('#map-period').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b)); renderMap(b.dataset.mapPeriod).catch(e=>error(e.message)); });
 $('#review-filter').onchange = e => { state.filter = e.target.value; state.page=0; renderInventory(); };
 $('#draw-area').onclick = () => { if (!state.images[state.active]) return toast('Upload a photograph first.'); if (state.busy) return; state.tool = state.tool === 'draw' ? 'select' : 'draw'; state.drawing = []; renderImages(); renderInventory(); if (state.tool === 'draw') toast('Click each corner in the active photo. Double-click or press Enter to finish. Escape cancels.'); };
@@ -323,7 +352,7 @@ $('#export-csv').onclick = () => {
 };
 $('#import-project').onclick = () => { if (!state.busy && !state.loading.some(v=>v!==false)) $('#project-file').click(); };
 $('#project-file').onchange = async e => { const f = e.target.files[0]; if (!f || state.busy || state.loading.some(v=>v!==false)) return; studyVersion++;try { if (f.size > 80e6) throw new Error('Project file is too large (maximum 80 MB).'); restore(JSON.parse(await f.text())); save(); toast('Project restored. Upload original photos to rerun detection.'); } catch (e) { error(`Could not open project: ${e.message}`); } e.target.value = ''; };
-$('#new-study').onclick = () => { if (state.busy || state.sampleLoading) return; state.images = [null, null]; state.projectId=crypto.randomUUID();state.datasetId=null;resetReviewFilters();studyVersion++;uploadVersions[0]++;uploadVersions[1]++;state.loading=[false,false];state.page=0;state.images=[null,null];state.title = 'Untitled comparison'; state.views = [null, null]; state.selected = null; state.tool = 'select'; state.drawing = []; $('#site-select').value = ''; syncInputs(); render(); save(); setTab('overview'); toast('New comparison ready. Previous work is saved in your data library.'); };
+$('#new-study').onclick = () => { if (state.busy || state.sampleLoading) return; state.images = [null, null]; state.projectId=crypto.randomUUID();state.datasetId=null;state.active=1;autoScans.clear();resetReviewFilters();studyVersion++;uploadVersions[0]++;uploadVersions[1]++;state.loading=[false,false];state.page=0;state.images=[null,null];state.title = 'Untitled comparison'; state.views = [null, null]; state.selected = null; state.tool = 'select'; state.drawing = []; $('#site-select').value = ''; syncInputs(); render(); save(); setTab('overview'); toast('New comparison ready. Previous work is saved in your data library.'); };
 let studyVersion=0;
 async function loadDemo(id) {
   if(state.busy||state.loading.some(v=>v!==false))return toast('Finish the current operation before changing studies.');

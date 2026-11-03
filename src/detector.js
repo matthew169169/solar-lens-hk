@@ -20,7 +20,7 @@ export function cancelDetection() {
 export async function detect(image, options, onProgress) {
   const runGeneration = generation;
   const checkCancelled = () => { if (generation !== runGeneration) throw new Error('Detection cancelled.'); };
-  if (!image.meta.original || !image.read) throw new Error('Re-upload the original photograph to run detection on a saved project.');
+  if (!image.read) throw new Error('The current photograph is not readable. Reattach its original file.');
   onProgress(0, 'Loading solar detector…');
   if (!ready) ready = call({ type: 'load', base: new URL(import.meta.env.BASE_URL, location.href).href }).catch(e => { ready = null; throw e; });
   await ready;
@@ -29,7 +29,7 @@ export async function detect(image, options, onProgress) {
   const areaFactor = pixelAreaM2(image.meta);
   const nativeGsd = areaFactor ? Math.sqrt(areaFactor) : null;
   // Limit downsampling to the requested working GSD; never invent detail by upsampling.
-  const scale = nativeGsd ? Math.max(1, Number(options.gsd) / nativeGsd) : 1;
+  const scale = Math.max(image.sourceScale || 1, nativeGsd ? Number(options.gsd) / nativeGsd : 1, 1);
   const stride = 512 * scale, margin = 64 * scale;
   const nx = Math.ceil(width / stride), ny = Math.ceil(height / stride), total = nx * ny;
   const polys = [], scores = [];
@@ -64,5 +64,5 @@ export async function detect(image, options, onProgress) {
   for (let i = 0; i < polys.length; i += 150) merged = clipping.union(merged, ...polys.slice(i, i + 150));
   const minPixels = areaFactor ? .3 / areaFactor : 12;
   const features = merged.filter(r => polygonArea(r) >= minPixels).map((rings, i) => ({ id: `A${String(i + 1).padStart(3, '0')}`, rings, score: null, count: null, reviewed: false, excluded: false, method: 'YOLOv8s solar segmentation, tiled mask union' }));
-  return { features, run: { model: 'finloop/yolov8s-seg-solar-panels', confidenceThreshold: Number(options.threshold), workingGsdM: nativeGsd ? nativeGsd * scale : null, tiles: total, timestamp: new Date().toISOString(), reviewRequired: true } };
+  return { features, run: { model: 'finloop/yolov8s-seg-solar-panels', image: image.name, source: image.detectionSource || 'original photograph', confidenceThreshold: Number(options.threshold), workingGsdM: nativeGsd ? nativeGsd * scale : null, tiles: total, timestamp: new Date().toISOString(), reviewRequired: true } };
 }
