@@ -12,6 +12,10 @@ The publishing branch contains application source and approved study assets, plu
 
 Pages from a private repository requires an eligible GitHub plan. If it is unavailable, deploy to a separate public web repository while keeping the original source/research repository private. To target another existing repository, use `node scripts/deploy-github-pages.mjs owner/repository` after `npm run build`.
 
+## Presentation
+
+The [20-slide project and function guide (v2.1)](docs/presentations/Solar-Lens-HK-Project-and-Functions.pptx) explains the workflow, current-photo scan controls, measurements, architecture, all 11 study results and limitations. It includes presenter notes and editable result tables/charts. The [v2.2 release notes](docs/releases/v2.2.md) cover the latest review, backup and performance features.
+
 ## Run
 
 Requires Node.js 22 or newer.
@@ -21,7 +25,7 @@ npm ci
 npm run dev
 ```
 
-`npm test` runs measurement/export tests. `npm run build` prepares a static `dist/` directory that can be hosted on any static HTTPS host. `npm run preview` tests that production build locally. No database server, secret, API key or inference subscription is required. The included ONNX model is loaded on demand.
+`npm test` runs 38 measurement, inference-decoder, scan-identity, import and persistence tests. `npm run build` prepares a static `dist/` directory that can be hosted on any static HTTPS host. `npm run preview` tests that production build locally. `npm run benchmark` compares cached and uncached calculations using all supplied studies. No database server, secret, API key or inference subscription is required. The included ONNX model is loaded on demand.
 
 ## Features
 
@@ -30,6 +34,9 @@ npm run dev
 - Non-overlapping tile-core ownership and polygon union avoid double-counting overlapping mask area. Interior holes are preserved.
 - Separate older/newer images, editable dates, coverage checks, zoom/pan, native-detail decoding for original uploads, and clickable outlines.
 - Manual count overrides, per-area tilt/module dimensions and review notes, candidate exclusion/restoration, missed-area tracing and review status.
+- Bulk review, exclusion and restoration, with a 20-step Undo/Redo history for reviews, outlines, calibration, measurement settings and completed detection runs. Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z work outside text fields and dialogs. History is cleared on study/photo replacement and does not survive reload.
+- Estimated tile workload before scanning, and source, working resolution, elapsed time and timestamp after a scan. Reversed photo years and substantially mismatched scan resolutions withhold comparison deltas.
+- Whole-library backup/restore, validated imports, immediate queued autosaves and retry after a failed save. Matching originals can be reattached without losing reviews or automatically rescanning.
 - Net plan-view area, tilt-adjusted panel-face area, and individually labelled area-based module-count estimates.
 - Hong Kong 1980 Grid (EPSG:2326), EPSG:3857, EPSG:4326 and WGS84 UTM coordinates; location export to WGS84. Geographic degrees are never interpreted as square metres. Web Mercator area uses a local latitude scale correction.
 - CSV, GeoJSON and whole-project JSON exports. Project previews/results autosave in local IndexedDB. Project files do not include original high-resolution photographs; saved previews can be rescanned at their available resolution; reattach originals for full detail.
@@ -42,14 +49,16 @@ Detection processes the selected photograph. Its filename is shown beside **Resu
 
 ## Using the redesigned workspace
 
-1. Click **New study**, name the study, and upload one current photograph, or an older/newer pair, into the photo cards. **Auto-detect new uploads** runs the model on each newly imported photo; turn it off when you want to calibrate before scanning or preserve reviews while reattaching originals. Dates can be edited independently. Reading progress appears on each card.
+1. Click **New study**, name the study, and upload one current photograph, or an older/newer pair, into the photo cards. **Auto-detect new uploads** runs the model on each newly imported photo; turn it off when you want to calibrate before scanning. Reattaching a matching original preserves reviews and skips automatic detection. Dates can be edited independently. Reading progress appears on each card.
 2. GeoTIFF scale and coordinates are read automatically. For ordinary photos, choose **Set scale & location**. Known pixel spacing enables areas; a Hong Kong grid or latitude/longitude anchor also enables locations. Manual calibration assumes a north-up orthophoto.
 3. Set study tilt, physical module area, confidence and working resolution. Select the exact filename in **Scan target**, then click **Detect current photo**. The default scope scans only that selected photo; **Both loaded photos** scans the pair. The images and active selection stay fixed during scanning. You can cancel while retaining previous results. The HAECO example is available separately under **How it works** and is never used as a fallback for user-photo detection.
-4. Open **Review** on a candidate for a close-up. Enter a physical module count, optional per-area tilt/module dimensions, and a note. Exclude false positives or trace missed areas. Search, sort and paginate the inventory.
+4. Open **Review** on a candidate for a close-up. Enter a physical module count, optional per-area tilt/module dimensions, and a note. Exclude false positives or trace missed areas. Search, sort and paginate the inventory. Select rows or a complete page for bulk actions; Undo and Redo recover recent changes in this study, including a completed rescan that replaced reviews.
 5. **Data library** contains all 11 supplied pairs plus saved personal comparisons. Search by place/date/filename, filter supplied or uploaded studies, and reopen edited projects. Saved projects retain their measurement assumptions. Library totals can include overlapping studies and are not a territory-wide inventory.
 6. **Panel locations** shows either the current comparison or all library outlines, with older/newer/both date controls. Export measurement CSV, WGS84 GeoJSON, a reopenable project JSON, or filtered library summaries/outlines.
 
-Personal projects autosave in this browser on this device. Export a project JSON to back up or transfer it. Original high-resolution files are not stored in project exports or uploaded to a server; reattach the same filename and dimensions to regain native detail. Saved previews can also be scanned, with the result explicitly labelled **reduced preview** and a working resolution no finer than the preview source. Turn off automatic upload detection before reattaching an original if you need to preserve existing review values. Use original imagery for counting physical modules.
+Personal projects autosave in this browser on this device. Wait for **Saved on this device** before closing. A failed write offers **Retry save**; export a copy if device storage remains unavailable. Export one project JSON, or use **Data library → Back up saved work** for all saved studies. **Restore backup** validates the complete file and merges by study ID, keeping the most recently saved record for each ID; retain the original backup if device clocks differ.
+
+Original high-resolution files are not stored in exports or uploaded to a server. Reattach the same original to regain native detail. Identity checks use filename, dimensions and, when recorded, byte size and a SHA-256 digest of the first/last 64 KiB plus size. This is a sampled comparison, not a full-file integrity guarantee; older saved records may only have filename/dimensions. Saved previews can also be scanned, explicitly labelled **reduced preview**, with a working resolution no finer than the preview source. Use original imagery for counting physical modules.
 
 ## Measurement meaning
 
@@ -101,6 +110,8 @@ The `.openai/hosting.json` file belongs to this project's private Sites deployme
 ## Repository structure
 
 `src/imagery.js`: image/window loading and georeferencing. `src/inference.worker.js`: model execution. `src/postprocess.js`: masks/NMS. `src/detector.js`: tiling and union. `src/geometry.js`: measurements and geographic exports. `src/main.js`: review, comparison, maps and persistence. `scripts/`: reproducible asset preparation. `tests/`: measurement and inference-decoder tests.
+
+`src/measurement-cache.js` caches unchanged measurements and coordinate conversions; feature arrays and edited feature objects are replaced immutably, while rings are shared. `src/project-data.js` validates imports and merges backups. `src/history.js` implements bounded undo/redo. `src/persistence.js` coalesces queued storage writes and retains failed records for retry. Leaflet and GeoTIFF JavaScript load only when needed.
 
 An optional GitHub Actions test/build workflow is provided at `docs/ci.yml.example`. To enable it, an owner with workflow-write permission can copy it to `.github/workflows/ci.yml`. The publishing connection used for the initial release lacks that scope, so automated Actions are not enabled; tests and the production build were run locally.
 

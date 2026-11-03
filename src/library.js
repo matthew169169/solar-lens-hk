@@ -1,4 +1,4 @@
-import { geojson } from './geometry.js';
+import { cachedGeojson as geojson } from './measurement-cache.js';
 
 export const projectSettings = (project, fallback) => project.settings || fallback;
 
