@@ -15,11 +15,14 @@ self.onmessage = async ({ data }) => {
       const rgb = new Float32Array(size * 3);
       for (let i = 0; i < size; i++) { rgb[i] = rgba[i * 4] / 255; rgb[size + i] = rgba[i * 4 + 1] / 255; rgb[size * 2 + i] = rgba[i * 4 + 2] / 255; }
       const input = new ort.Tensor('float32', rgb, [1, 3, 640, 640]);
-      const raw = await session.run({ [session.inputNames[0]]: input });
-      const result = decode(Object.values(raw), data.threshold);
-      for (const tensor of Object.values(raw)) tensor.dispose();
-      input.dispose();
-      self.postMessage({ id, result });
+      let raw;
+      try {
+        raw = await session.run({ [session.inputNames[0]]: input });
+        self.postMessage({ id, result: decode(Object.values(raw), data.threshold) });
+      } finally {
+        if (raw) for (const tensor of Object.values(raw)) tensor.dispose();
+        input.dispose();
+      }
     }
   } catch (error) { self.postMessage({ id, error: error.message }); }
 };

@@ -1,7 +1,18 @@
-import { fromBlob } from 'geotiff';
 import proj4 from 'proj4';
 import { rasterBands } from './raster-bands.js';
-import { previewWindow } from './scan-plan.js';
+import { previewWindow, previewDimensions } from './scan-plan.js';
+
+const previewReaders = new WeakMap();
+
+export async function fingerprintSample(file) {
+  if (!globalThis.crypto?.subtle) return null;
+  const first = new Uint8Array(await file.slice(0, 65536).arrayBuffer());
+  const last = new Uint8Array(await file.slice(Math.max(65536, file.size - 65536)).arrayBuffer());
+  const size = new TextEncoder().encode(String(file.size));
+  const bytes = new Uint8Array(first.length + last.length + size.length);
+  bytes.set(first); bytes.set(last, first.length); bytes.set(size, first.length + last.length);
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 export function canvas(width, height) {
   const c = document.createElement('canvas'); c.width = width; c.height = height; return c;
@@ -22,8 +33,9 @@ export async function openImage(file, { onProgress = () => {} } = {}) {
   onProgress(.02);
   let previewing = true;
   const isTiff = /\.tiff?$/i.test(file.name) || file.type.includes('tiff');
-  let read, meta;
+  let read, meta, dispose;
   if (isTiff) {
+    const { fromBlob } = await import('geotiff');
     const tiff = await fromBlob(file, { cache: false });
     const im = await tiff.getImage();
     const fd = im.getFileDirectory(), keys = im.getGeoKeys();
@@ -56,22 +68,45 @@ export async function openImage(file, { onProgress = () => {} } = {}) {
     };
   } else {
     const bitmap = await createImageBitmap(file);
+    dispose = () => bitmap.close();
     meta = { width: bitmap.width, height: bitmap.height, affine: null, crs: null, metric: false, georefSource: 'missing', original: true };
     read = async (window, width, height) => {
       const c = canvas(width, height); c.getContext('2d').drawImage(bitmap, window[0], window[1], window[2] - window[0], window[3] - window[1], 0, 0, width, height); return c;
     };
   }
-  const width = Math.min(1400, meta.width), height = Math.max(1, Math.round(meta.height * width / meta.width));
-  const preview = await read([0, 0, meta.width, meta.height], width, height);
-  previewing = false; onProgress(1);
-  return { name: file.name, sizeBytes: file.size, date: (file.name.match(/(?:19|20)\d{2}/) || [''])[0], meta, read, preview: preview.toDataURL('image/jpeg', .88), features: [], analyzed: false };
+  try {
+    const { width, height } = previewDimensions(meta.width, meta.height);
+    const preview = await read([0, 0, meta.width, meta.height], width, height);
+    previewing = false; onProgress(1);
+    return { name: file.name, sizeBytes: file.size, sampleFingerprint: await fingerprintSample(file), previewSize: { width, height }, date: (file.name.match(/(?:19|20)\d{2}/) || [''])[0], meta, read, dispose, preview: preview.toDataURL('image/jpeg', .88), features: [], analyzed: false };
+  } catch (error) { dispose?.(); throw error; }
 }
 
 export async function prepareDetectionImage(image) {
   if (image.read) return { ...image, sourceScale: 1, detectionSource: 'original photograph' };
   // Saved studies remain scannable without substituting any other photograph.
-  const response = await fetch(new URL(image.preview, document.baseURI));
-  if (!response.ok) throw new Error('The current photo preview could not load. Reattach its original file.');
-  const preview = await openImage(new File([await response.blob()], 'preview.jpg', { type: 'image/jpeg' }));
-  return { ...image, sourceScale: Math.max(image.meta.width / preview.meta.width, image.meta.height / preview.meta.height, 1), detectionSource: 'reduced preview', read: (window, width, height) => preview.read(previewWindow(window, image.meta, preview.meta), width, height) };
+  let cached = previewReaders.get(image);
+  if (!cached || cached.source !== image.preview) {
+    const promise = (async () => {
+      const response = await fetch(new URL(image.preview, document.baseURI));
+      if (!response.ok) throw new Error('The current photo preview could not load. Reattach its original file.');
+      const bitmap = await createImageBitmap(await response.blob());
+      return { bitmap, width: bitmap.width, height: bitmap.height };
+    })();
+    cached = { source: image.preview, promise };
+    previewReaders.set(image, cached);
+    promise.catch(() => { if (previewReaders.get(image) === cached) previewReaders.delete(image); });
+  }
+  const preview = await cached.promise;
+  return { ...image, sourceScale: Math.max(image.meta.width / preview.width, image.meta.height / preview.height, 1), detectionSource: 'reduced preview', read: async (window, width, height) => {
+    const w = previewWindow(window, image.meta, preview), result = canvas(width, height);
+    result.getContext('2d').drawImage(preview.bitmap, w[0], w[1], w[2] - w[0], w[3] - w[1], 0, 0, width, height);
+    return result;
+  } };
+}
+
+export function releaseImage(image) {
+  image?.dispose?.();
+  const cached = image && previewReaders.get(image);
+  if (cached) { previewReaders.delete(image); cached.promise.then(p => p.bitmap.close()).catch(() => {}); }
 }

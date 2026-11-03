@@ -99,6 +99,8 @@ export function geojson(images, settings) {
         plan_area_m2: m.plan, face_area_m2: m.face,
         assumed_tilt_deg: m.tilt, module_face_area_m2: m.moduleArea,
         reviewed: f.reviewed, review_note: f.note || '', confidence: f.score ?? null, method: f.method || 'AI segmentation',
+        image_source: image.run?.source || image.run?.inferenceEngine || null,
+        working_gsd_m: image.run?.workingGsdM ?? null, scan_timestamp: image.run?.timestamp || null,
       } });
     });
   });
