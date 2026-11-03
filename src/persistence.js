@@ -22,6 +22,7 @@ export function createSaveQueue(write, onStatus = () => {}) {
   return {
     enqueue(project) { return enqueueAll([project], project); },
     enqueueAll,
+    discard(ids) { for (const id of ids) pending.delete(id); if (ids.includes(latest?.id)) latest = null; },
     retry() { if (!running && pending.size) { onStatus('saving'); running = Promise.resolve().then(drain); } return running || Promise.resolve(); },
     get pending() { return pending.size; },
   };

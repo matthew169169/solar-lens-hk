@@ -20,6 +20,7 @@ export function normalizeSettings(input = {}, fallback = defaults) {
 export function validateProject(data) {
   if (!data || data.version !== 1 || !Array.isArray(data.images) || data.images.length !== 2) throw new Error('This is not a Solar Lens project file.');
   if (data.id != null && (typeof data.id !== 'string' || !data.id.length || data.id.length > 160)) throw new Error('Invalid project identifier.');
+  if (data.saveMode != null && !['trial', 'saved'].includes(data.saveMode)) throw new Error('Invalid project save choice.');
   if (data.settings) normalizeSettings(data.settings);
   let vertices = 0;
   for (const image of data.images.filter(Boolean)) {
